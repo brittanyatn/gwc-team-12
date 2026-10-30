@@ -8,7 +8,9 @@ Customizable mp3 player based on a personality quiz
 RUST download, nodejs
 
 Install Rust with:
+
     curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+   
     *close and reopen terminal to check if its downloaded*
 
 NEXT:
@@ -19,5 +21,7 @@ NEXT:
     `npm run dev` for the browser at http://127.0.0.1:5173
     `npm run tauri dev` for the desktop app
 
+    requires spotify premium
 
-#
+# APIs used
+    Web Playback SDK
