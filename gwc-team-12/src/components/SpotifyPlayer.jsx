@@ -45,6 +45,13 @@ function SpotifyPlayer({ token }) {
       player.connect();
     };
 
+        if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
+      const script = document.createElement("script");
+      script.src = "https://sdk.scdn.co/spotify-player.js";
+      script.async = true;
+      document.body.appendChild(script);
+    }
+
     return () => {
       playerRef.current?.disconnect();
     };
