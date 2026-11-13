@@ -60,12 +60,24 @@ function SpotifyPlayer({ token }) {
   return (
     <main>
 
+        <button onClick={() => playerRef.current?.previousTrack()}>
+          Previous
+        </button>
+
         <button onClick={() => playerRef.current?.activateElement()}>
       Activate Player
     </button>
 
+    <button onClick={() => playerRef.current?.pause()}>
+          Pause
+        </button>
+
         <button onClick={() => playerRef.current?.togglePlay()}>
-            Toggle Play
+          Play
+        </button>
+
+        <button onClick={() => playerRef.current?.nextTrack()}>
+            Next
         </button>
     </main>
   );
