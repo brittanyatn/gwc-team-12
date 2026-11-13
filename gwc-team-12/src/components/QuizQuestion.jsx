@@ -21,7 +21,7 @@ export default function QuizQuestion({ data, currentIndex, total, onSelect, onSk
             key={idx}
             type="button"
             className="option-card"
-            onClick={() => onSelect(option.theme)}
+            onClick={() => onSelect(option)}
           >
             {option.text}
           </button>

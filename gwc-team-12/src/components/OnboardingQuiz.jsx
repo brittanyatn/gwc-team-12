@@ -5,42 +5,47 @@ import QuizQuestion from './QuizQuestion';
 const QUIZ_DATA = [
   {
     id: 1,
-    question: "You stumble upon a hidden path in the forest. What calls to you first?",
+    question: "A hidden path opens in the woods. What draws you in?",
     options: [
-      { text: "The sound of rustling leaves", theme: "lightForest" },
-      { text: "A mysterious glowing light", theme: "darkForest" },
+      { text: "Sunlit rustling leaves", light: 2, dark: 0 },
+      { text: "A faint, mysterious glow", light: 0, dark: 2 },
+      { text: "A distant trickling stream", light: 1, dark: 1 },
     ]
   },
   {
     id: 2,
-    question: "A woodland guide steps forward from the trees. Who is it?",
+    question: "A forest guide appears. Who steps out?",
     options: [
-      { text: "A wise old owl", theme: "lightForest" },
-      { text: "A shadowy fox", theme: "darkForest" },
+      { text: "A wise barn owl", light: 2, dark: 0 },
+      { text: "A shadowy silver fox", light: 0, dark: 2 },
+      { text: "A quiet misty deer", light: 1, dark: 1 },
     ]
   },
   {
     id: 3,
-    question: "You find a clearing with two paths. Which do you take?",
+    question: "Which trail do you follow?",
     options: [
-      { text: "The sunlit path with flowers", theme: "lightForest" },
-      { text: "The misty path with glowing mushrooms", theme: "darkForest" },
+      { text: "The sunlit wildflower path", light: 2, dark: 0 },
+      { text: "The glowing mushroom trail", light: 0, dark: 2 },
+      { text: "Mossy stone steps", light: 1, dark: 1 },
     ]
   },
   {
     id: 4,
-    question: "What music matches your state of mind right now?",
+    question: "What sound fits your mood right now?",
     options: [
-      { text: "Soft acoustic melodies, warm strings, and breezy rhythms", theme: "lightForest" },
-      { text: "Energetic beats, deep bass, and driving melodies", theme: "darkForest" },
+      { text: "Warm acoustic & breezy strings", light: 2, dark: 0 },
+      { text: "Deep bass & driving beats", light: 0, dark: 2 },
+      { text: "Dreamy lo-fi & ambient pads", light: 1, dark: 1 },
     ]
   },
   {
     id: 5,
-    question: "At the heart of the woods, you are drawn to an offering:",
+    question: "At the forest's heart, which relic do you take?",
     options: [
-      { text: "A sunstone crystal set into pale birch that radiates warmth.", theme: "lightForest" },
-      { text: "An obsidian pendulum laced with silver ivy that hums quietly.", theme: "darkForest" },
+      { text: "A warm sunstone crystal", light: 2, dark: 0 },
+      { text: "A silver-laced obsidian charm", light: 0, dark: 2 },
+      { text: "A firefly glass lantern", light: 1, dark: 1 },
     ]
   }
 ];
@@ -49,10 +54,13 @@ export default function OnboardingQuiz({ onComplete }) {
   const [screen, setScreen] = useState('welcome');
   const [questionIdx, setQuestionIdx] = useState(0);
   const [tally, setTally] = useState({ lightForest: 0, darkForest: 0 });
-  const [selectedTheme, setSelectedTheme] = useState('lightForest'); // 1. Added missing state hook
+  const [selectedTheme, setSelectedTheme] = useState('lightForest');
 
-  const handleOptionChoice = (themeKey) => {
-    const nextTally = { ...tally, [themeKey]: tally[themeKey] + 1 };
+  const handleOptionChoice = (selectedOption) => {
+    const nextTally = {
+      lightForest: tally.lightForest + selectedOption.light,
+      darkForest: tally.darkForest + selectedOption.dark,
+    };
     setTally(nextTally);
 
     if (questionIdx + 1 < QUIZ_DATA.length) {
@@ -60,7 +68,7 @@ export default function OnboardingQuiz({ onComplete }) {
     } else {
       const winner = nextTally.darkForest > nextTally.lightForest ? 'darkForest' : 'lightForest';
       setSelectedTheme(winner);
-      setScreen('reveal'); // 2. Fixed from 'result' to 'reveal' to match your if-condition below
+      setScreen('reveal');
     }
   };
 
