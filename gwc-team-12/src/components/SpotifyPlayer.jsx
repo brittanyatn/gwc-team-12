@@ -1,7 +1,43 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function SpotifyPlayer({ token }) {
   const playerRef = useRef(null);
+  const [track, setTrack] = useState(null);
+  const [paused, setPaused] = useState(true);
+  const deviceIdRef = useRef(null);
+  const startedRef = useRef(false);
+  const [started, setStarted] = useState(false);
+
+
+
+    const handlePlayPause = async () => {
+      const player = playerRef.current;
+      if (!player) return;
+
+      player.activateElement();
+
+      if (!startedRef.current) {
+        const state = await player.getCurrentState();
+        const res = await fetch(
+          `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
+          {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(
+              state?.context?.uri ? { context_uri: state.context.uri } : {}
+            ),
+          }
+        );
+        console.log("Start play:", res.status);
+        if (res.ok || res.status === 204) startedRef.current = true;
+        return;
+      }
+
+      player.togglePlay();
+    };
 
   useEffect(() => {
 
@@ -21,8 +57,10 @@ function SpotifyPlayer({ token }) {
 
       // Ready
       player.addListener("ready", ({ device_id }) => {
+        
         console.log("Ready with Device ID", device_id);
-      });
+        deviceIdRef.current = device_id;
+        });
 
       // Not Ready
       player.addListener("not_ready", ({ device_id }) => {
@@ -43,6 +81,19 @@ function SpotifyPlayer({ token }) {
 
       playerRef.current = player;
       player.connect();
+
+      player.addListener("player_state_changed", (state) => {
+        if (!state) 
+          return; 
+        setTrack(state.track_window.current_track);
+        setPaused(!state.paused);
+
+        if (!state.paused) 
+          setStarted(true);
+
+        });
+
+     
     };
 
         if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
@@ -60,25 +111,34 @@ function SpotifyPlayer({ token }) {
   return (
     <main>
 
+      {playerRef &&
+      (
+        <div>Connected.</div>
+      )}
+
+      {started && track && (
+        <div>
+          <img src={track.album?.images?.[0]?.url} alt={track.album?.name} width={200} />
+          <p>{track.name}</p>
+          <p>{track.artists.map((a) => a.name).join(", ")}</p>
+        </div>
+      )}
+
         <button onClick={() => playerRef.current?.previousTrack()}>
-          Previous
+          ⏮
         </button>
 
-        <button onClick={() => playerRef.current?.activateElement()}>
-      Activate Player
-    </button>
-
-    <button onClick={() => playerRef.current?.pause()}>
-          Pause
-        </button>
-
-        <button onClick={() => playerRef.current?.togglePlay()}>
-          Play
+  
+        <div>
+        <button onClick={handlePlayPause}>
+          {!started ? "Start playing" : paused ? "⏸" : "▶"}
         </button>
 
         <button onClick={() => playerRef.current?.nextTrack()}>
-            Next
+            ⏭
         </button>
+        </div>
+    
     </main>
   );
 }
