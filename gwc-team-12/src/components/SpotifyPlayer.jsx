@@ -127,7 +127,25 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
           }
         );
         console.log("Start play:", res.status);
-        if (res.ok || res.status === 204) startedRef.current = true;
+        if (res.ok || res.status === 204) {
+          startedRef.current = true;
+          return;
+        }
+
+        // Mix/test song rejected? Fall back to resuming whatever played last.
+        if (testTrack || mix?.uris?.length) {
+          console.warn("[forest mix] Spotify rejected the mix, resuming last playback instead");
+          const retry = await fetch(
+            `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
+            {
+              method: "PUT",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              body: JSON.stringify(state?.context?.uri ? { context_uri: state.context.uri } : {}),
+            }
+          );
+          console.log("Start play (fallback):", retry.status);
+          if (retry.ok || retry.status === 204) startedRef.current = true;
+        }
         return;
       }
 
