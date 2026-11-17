@@ -90,6 +90,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
   const [mixStatus, setMixStatus] = useState("idle"); // idle | loading | ready | error
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
   const [savedUrl, setSavedUrl] = useState(null);
+  const [playerProblem, setPlayerProblem] = useState(null); // shown under the song info
 
   useEffect(() => {
     if (!token || token === "preview-token") return;
@@ -131,13 +132,24 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       player.activateElement();
 
       if (!startedRef.current) {
-        // the player registers with Spotify a moment after it's created
-        for (let i = 0; i < 20 && !sharedPlayer.deviceId; i++) {
-          await new Promise((r) => setTimeout(r, 250));
-        }
-        if (!sharedPlayer.deviceId) {
-          console.warn("Spotify player isn't ready yet, try again in a moment");
-          return;
+        // the player registers with Spotify a moment after it's created;
+        // if it never does (failed start / went offline), reconnect once and wait again
+        const waitForDevice = async (ms) => {
+          for (let i = 0; i < ms / 250 && !sharedPlayer.deviceId; i++) {
+            await new Promise((r) => setTimeout(r, 250));
+          }
+          return sharedPlayer.deviceId;
+        };
+        setPlayerProblem(null);
+        if (!(await waitForDevice(3000))) {
+          console.warn("Spotify player not ready, reconnecting…");
+          player.disconnect();
+          await player.connect();
+          if (!(await waitForDevice(6000))) {
+            console.warn("Spotify player still isn't ready");
+            setPlayerProblem("Spotify's player couldn't start. Refresh the page and press play again.");
+            return;
+          }
         }
         const state = await player.getCurrentState();
         const testTrack = getTestTrackUri();
@@ -217,10 +229,14 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
         // Not Ready
         player.addListener("not_ready", ({ device_id }) => {
           console.log("Device ID has gone offline", device_id);
+          if (sharedPlayer.deviceId === device_id) sharedPlayer.deviceId = null;
         });
 
+        // The SDK couldn't start (often the browser's protected-audio/DRM step).
+        // Play will reconnect and try again; see waitForDevice.
         player.addListener('initialization_error', ({ message }) => {
             console.error(message);
+            sharedPlayer.deviceId = null;
         });
 
         player.addListener('authentication_error', ({ message }) => {
@@ -340,7 +356,8 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
           <>
             <p className="player-title">{playerRef ? "Connected." : "Connecting…"}</p>
             <p className="player-artist">
-              {mixStatus === "loading" ? "Gathering your forest mix…"
+              {playerProblem ? playerProblem
+                : mixStatus === "loading" ? "Gathering your forest mix…"
                 : mixStatus === "ready" ? `${mix.name} · ${mix.uris.length} songs · press play`
                 : "Press play to start"}
             </p>
