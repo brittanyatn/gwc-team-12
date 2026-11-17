@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./Forest.css";
+import { buildForestMix, saveMixAsPlaylist } from "../lib/forestMix";
 
 // Player art from the Figma midfi "Player · iPhone Large" frames
 import bgLight from "../assets/forest/bg-light.png";
@@ -50,7 +51,7 @@ function getTestTrackUri() {
   return id ? `spotify:track:${id}` : null;
 }
 
-function SpotifyPlayer({ token, theme = "lightForest" }) {
+function SpotifyPlayer({ token, theme = "lightForest", answers = [] }) {
   const playerRef = useRef(null);
   const [track, setTrack] = useState(null);
   const [paused, setPaused] = useState(true); // note: true means music IS playing (set from !state.paused)
@@ -59,6 +60,43 @@ function SpotifyPlayer({ token, theme = "lightForest" }) {
   const [started, setStarted] = useState(false);
   const [position, setPosition] = useState(0); // ms, for the progress bar
   const [duration, setDuration] = useState(0);
+
+  // Forest mix: the listener's top songs filtered by their quiz answers
+  const [mix, setMix] = useState(null);
+  const [mixStatus, setMixStatus] = useState("idle"); // idle | loading | ready | error
+  const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
+  const [savedUrl, setSavedUrl] = useState(null);
+
+  useEffect(() => {
+    if (!token || token === "preview-token") return;
+    let cancelled = false;
+    setMixStatus("loading");
+    buildForestMix(token, theme, answers)
+      .then((m) => {
+        if (cancelled) return;
+        setMix(m);
+        setMixStatus(m.uris.length ? "ready" : "error");
+      })
+      .catch((e) => {
+        console.error("[forest mix] failed:", e);
+        if (!cancelled) setMixStatus("error");
+      });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, theme]);
+
+  const handleSaveMix = async () => {
+    if (!mix || saveStatus === "saving") return;
+    setSaveStatus("saving");
+    try {
+      const playlist = await saveMixAsPlaylist(token, mix);
+      setSavedUrl(playlist.external_urls?.spotify || null);
+      setSaveStatus("saved");
+    } catch (e) {
+      console.error("[forest mix] save failed:", e);
+      setSaveStatus("error");
+    }
+  };
 
 
 
@@ -81,6 +119,7 @@ function SpotifyPlayer({ token, theme = "lightForest" }) {
             },
             body: JSON.stringify(
               testTrack ? { uris: [testTrack] }
+              : mix?.uris?.length ? { uris: mix.uris } // play the forest mix
               : state?.context?.uri ? { context_uri: state.context.uri } : {}
             ),
           }
@@ -177,6 +216,7 @@ function SpotifyPlayer({ token, theme = "lightForest" }) {
   const progress = duration ? Math.min(position / duration, 1) : 0;
 
   return (
+    <>
     <main className={`player-card ${theme}`}>
       {/* scenery */}
       <img className="player-layer player-bg" src={art.bg} alt="" />
@@ -203,7 +243,11 @@ function SpotifyPlayer({ token, theme = "lightForest" }) {
         ) : (
           <>
             <p className="player-title">{playerRef ? "Connected." : "Connecting…"}</p>
-            <p className="player-artist">Press play to start</p>
+            <p className="player-artist">
+              {mixStatus === "loading" ? "Gathering your forest mix…"
+                : mixStatus === "ready" ? `${mix.name} · ${mix.uris.length} songs · press play`
+                : "Press play to start"}
+            </p>
           </>
         )}
       </div>
@@ -226,6 +270,20 @@ function SpotifyPlayer({ token, theme = "lightForest" }) {
         </button>
       </div>
     </main>
+
+    {/* Save the forest mix to the listener's Spotify library */}
+    {mixStatus === "ready" && (
+      <p className={`mix-save ${theme}`}>
+        {saveStatus === "saved" ? (
+          savedUrl ? <a href={savedUrl} target="_blank" rel="noreferrer">Saved! Open “{mix.name}” in Spotify</a> : "Saved to your Spotify library!"
+        ) : (
+          <button type="button" onClick={handleSaveMix} disabled={saveStatus === "saving"}>
+            {saveStatus === "saving" ? "Saving…" : saveStatus === "error" ? "Couldn't save — try again" : "Save this mix to Spotify"}
+          </button>
+        )}
+      </p>
+    )}
+    </>
   );
 }
 

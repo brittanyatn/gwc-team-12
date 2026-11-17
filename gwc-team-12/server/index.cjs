@@ -24,7 +24,9 @@ const generateRandomString = function (length) {
 }
 
 app.get('/auth/login', (req, res) => {
-  const scope = "streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state"
+  // user-top-read: read the listener's most-played artists/tracks for the forest mix
+  // playlist-modify-private: optionally save the mix as a private playlist
+  const scope = "streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state user-top-read playlist-modify-private"
 
   const params = new URLSearchParams({
     response_type: "code",

@@ -3,50 +3,51 @@ import React, { useState } from 'react';
 import QuizQuestion from './QuizQuestion';
 import ForestCard, { useSystemForestTheme } from './ForestCard';
 
+// `genres` = Spotify genre keywords each answer adds to the forest mix (see src/lib/forestMix.js)
 const QUIZ_DATA = [
   {
     id: 1,
     question: "A hidden path opens in the woods. What draws you in?",
     options: [
-      { text: "Sunlit rustling leaves", light: 2, dark: 0 },
-      { text: "A faint, mysterious glow", light: 0, dark: 2 },
-      { text: "A distant trickling stream", light: 1, dark: 1 },
+      { text: "Sunlit rustling leaves", light: 2, dark: 0, genres: ["indie folk", "folk", "acoustic"] },
+      { text: "A faint, mysterious glow", light: 0, dark: 2, genres: ["dream pop", "synth", "darkwave"] },
+      { text: "A distant trickling stream", light: 1, dark: 1, genres: ["lo-fi", "chill", "ambient"] },
     ]
   },
   {
     id: 2,
     question: "A forest guide appears. Who steps out?",
     options: [
-      { text: "A wise barn owl", light: 2, dark: 0 },
-      { text: "A shadowy silver fox", light: 0, dark: 2 },
-      { text: "A quiet misty deer", light: 1, dark: 1 },
+      { text: "A wise barn owl", light: 2, dark: 0, genres: ["singer-songwriter", "folk"] },
+      { text: "A shadowy silver fox", light: 0, dark: 2, genres: ["alternative", "trip hop", "indie rock"] },
+      { text: "A quiet misty deer", light: 1, dark: 1, genres: ["dream pop", "bedroom pop"] },
     ]
   },
   {
     id: 3,
     question: "Which trail do you follow?",
     options: [
-      { text: "The sunlit wildflower path", light: 2, dark: 0 },
-      { text: "The glowing mushroom trail", light: 0, dark: 2 },
-      { text: "Mossy stone steps", light: 1, dark: 1 },
+      { text: "The sunlit wildflower path", light: 2, dark: 0, genres: ["indie pop", "pop"] },
+      { text: "The glowing mushroom trail", light: 0, dark: 2, genres: ["electronic", "psychedelic"] },
+      { text: "Mossy stone steps", light: 1, dark: 1, genres: ["lo-fi", "jazz"] },
     ]
   },
   {
     id: 4,
     question: "What sound fits your mood right now?",
     options: [
-      { text: "Warm acoustic & breezy strings", light: 2, dark: 0 },
-      { text: "Deep bass & driving beats", light: 0, dark: 2 },
-      { text: "Dreamy lo-fi & ambient pads", light: 1, dark: 1 },
+      { text: "Warm acoustic & breezy strings", light: 2, dark: 0, genres: ["acoustic", "folk", "singer-songwriter"] },
+      { text: "Deep bass & driving beats", light: 0, dark: 2, genres: ["electronic", "house", "hip hop", "techno"] },
+      { text: "Dreamy lo-fi & ambient pads", light: 1, dark: 1, genres: ["lo-fi", "ambient", "chill"] },
     ]
   },
   {
     id: 5,
     question: "At the forest's heart, which relic do you take?",
     options: [
-      { text: "A warm sunstone crystal", light: 2, dark: 0 },
-      { text: "A silver-laced obsidian charm", light: 0, dark: 2 },
-      { text: "A firefly glass lantern", light: 1, dark: 1 },
+      { text: "A warm sunstone crystal", light: 2, dark: 0, genres: ["soul", "indie pop"] },
+      { text: "A silver-laced obsidian charm", light: 0, dark: 2, genres: ["post-punk", "darkwave", "alternative"] },
+      { text: "A firefly glass lantern", light: 1, dark: 1, genres: ["jazz", "bossa nova", "chill"] },
     ]
   }
 ];
@@ -57,6 +58,7 @@ export default function OnboardingQuiz({ onComplete }) {
   const [questionIdx, setQuestionIdx] = useState(0);
   const [tally, setTally] = useState({ lightForest: 0, darkForest: 0 });
   const [selectedTheme, setSelectedTheme] = useState('lightForest');
+  const [answers, setAnswers] = useState([]); // picked options, used to build the playlist
 
   const handleOptionChoice = (selectedOption) => {
     const nextTally = {
@@ -64,6 +66,8 @@ export default function OnboardingQuiz({ onComplete }) {
       darkForest: tally.darkForest + selectedOption.dark,
     };
     setTally(nextTally);
+    const nextAnswers = [...answers, selectedOption];
+    setAnswers(nextAnswers);
 
     if (questionIdx + 1 < QUIZ_DATA.length) {
       setQuestionIdx(questionIdx + 1);
@@ -75,7 +79,7 @@ export default function OnboardingQuiz({ onComplete }) {
   };
 
   const handleSkip = (theme = 'lightForest') => {
-    onComplete(theme);
+    onComplete(theme, answers); // skipped: mix uses the theme + any answers so far
   };
 
   if (screen === 'welcome') {
@@ -114,7 +118,7 @@ export default function OnboardingQuiz({ onComplete }) {
         </p>
         <p className="forest-kicker">Theme assigned: {selectedTheme}</p>
         <div className="forest-spacer" style={{ height: 18 }} />
-        <button type="button" className="btn-forest" onClick={() => onComplete(selectedTheme)}>
+        <button type="button" className="btn-forest" onClick={() => onComplete(selectedTheme, answers)}>
           DJ spin that shit
         </button>
       </ForestCard>
