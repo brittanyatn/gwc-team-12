@@ -1,12 +1,64 @@
 import { useEffect, useRef, useState } from "react";
+import "./Forest.css";
 
-function SpotifyPlayer({ token }) {
+// Player art from the Figma midfi "Player · iPhone Large" frames
+import bgLight from "../assets/forest/bg-light.png";
+import bgDark from "../assets/forest/bg-dark.png";
+import bushLight from "../assets/forest/bush-light.png";
+import bushDark from "../assets/forest/bush-dark.png";
+import bushMask from "../assets/forest/bush-mask.svg";
+// imported as text so each firefly can be animated individually (see Forest.css)
+import firefliesLight from "../assets/forest/fireflies-light.svg?raw";
+import firefliesDark from "../assets/forest/fireflies-dark.svg?raw";
+import grassLight from "../assets/forest/grass-light.svg";
+import grassDark from "../assets/forest/grass-dark.svg";
+import portalLight from "../assets/forest/portal-light.svg";
+import portalDark from "../assets/forest/portal-dark.svg";
+import portalMask from "../assets/forest/portal-mask.svg";
+import albumPlaceholder from "../assets/forest/album-placeholder.jpg";
+// PLACEHOLDER button art (Figma "Control Button" ovals, 73 × 37).
+// To swap in final art: replace these files, or point the imports at the new files.
+// Progress bar colors are placeholders too: --player-track / --player-played in Forest.css.
+import prevLight from "../assets/forest/prev-light.svg";
+import prevDark from "../assets/forest/prev-dark.svg";
+import playLight from "../assets/forest/play-light.svg";
+import playDark from "../assets/forest/play-dark.svg";
+import pauseLight from "../assets/forest/pause-light.svg";
+import pauseDark from "../assets/forest/pause-dark.svg";
+import nextLight from "../assets/forest/next-light.svg";
+import nextDark from "../assets/forest/next-dark.svg";
+
+const ART = {
+  lightForest: {
+    bg: bgLight, bush: bushLight, fireflies: firefliesLight, grass: grassLight, portal: portalLight,
+    prev: prevLight, play: playLight, pause: pauseLight, next: nextLight,
+  },
+  darkForest: {
+    bg: bgDark, bush: bushDark, fireflies: firefliesDark, grass: grassDark, portal: portalDark,
+    prev: prevDark, play: playDark, pause: pauseDark, next: nextDark,
+  },
+};
+
+// TEST SONG: add ?track=<Spotify song link> to the page URL to start that song
+// on the first press of play, e.g.
+//   http://127.0.0.1:1420/?track=https://open.spotify.com/track/XXXXXXXX
+// (Spotify app → ⋯ on a song → Share → Copy Song Link)
+function getTestTrackUri() {
+  const raw = new URLSearchParams(window.location.search).get("track");
+  if (!raw) return null;
+  const id = raw.match(/track[/:]([A-Za-z0-9]{22})/)?.[1] || raw.match(/^[A-Za-z0-9]{22}$/)?.[0];
+  return id ? `spotify:track:${id}` : null;
+}
+
+function SpotifyPlayer({ token, theme = "lightForest" }) {
   const playerRef = useRef(null);
   const [track, setTrack] = useState(null);
-  const [paused, setPaused] = useState(true);
+  const [paused, setPaused] = useState(true); // note: true means music IS playing (set from !state.paused)
   const deviceIdRef = useRef(null);
   const startedRef = useRef(false);
   const [started, setStarted] = useState(false);
+  const [position, setPosition] = useState(0); // ms, for the progress bar
+  const [duration, setDuration] = useState(0);
 
 
 
@@ -18,6 +70,7 @@ function SpotifyPlayer({ token }) {
 
       if (!startedRef.current) {
         const state = await player.getCurrentState();
+        const testTrack = getTestTrackUri();
         const res = await fetch(
           `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
           {
@@ -27,7 +80,8 @@ function SpotifyPlayer({ token }) {
               "Content-Type": "application/json",
             },
             body: JSON.stringify(
-              state?.context?.uri ? { context_uri: state.context.uri } : {}
+              testTrack ? { uris: [testTrack] }
+              : state?.context?.uri ? { context_uri: state.context.uri } : {}
             ),
           }
         );
@@ -57,7 +111,7 @@ function SpotifyPlayer({ token }) {
 
       // Ready
       player.addListener("ready", ({ device_id }) => {
-        
+
         console.log("Ready with Device ID", device_id);
         deviceIdRef.current = device_id;
         });
@@ -83,17 +137,19 @@ function SpotifyPlayer({ token }) {
       player.connect();
 
       player.addListener("player_state_changed", (state) => {
-        if (!state) 
-          return; 
+        if (!state)
+          return;
         setTrack(state.track_window.current_track);
         setPaused(!state.paused);
+        setPosition(state.position);
+        setDuration(state.duration);
 
-        if (!state.paused) 
+        if (!state.paused)
           setStarted(true);
 
         });
 
-     
+
     };
 
         if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
@@ -108,37 +164,67 @@ function SpotifyPlayer({ token }) {
     };
   }, [token]);
 
+  // Move the progress bar forward while a song is playing
+  const isPlaying = started && paused;
+  useEffect(() => {
+    if (!isPlaying) return;
+    const timer = setInterval(() => setPosition((p) => p + 500), 500);
+    return () => clearInterval(timer);
+  }, [isPlaying]);
+
+  const art = ART[theme] || ART.lightForest;
+  const cover = (started && track?.album?.images?.[0]?.url) || albumPlaceholder;
+  const progress = duration ? Math.min(position / duration, 1) : 0;
+
   return (
-    <main>
+    <main className={`player-card ${theme}`}>
+      {/* scenery */}
+      <img className="player-layer player-bg" src={art.bg} alt="" />
+      <div className="player-layer player-bushes" style={{ "--bush-mask": `url("${bushMask}")` }}>
+        <img src={art.bush} alt="" />
+      </div>
+      <div className="player-layer player-fireflies" aria-hidden="true" dangerouslySetInnerHTML={{ __html: art.fireflies }} />
+      <img className="player-layer" src={art.grass} width="349" height="371" alt="" />
 
-      {playerRef &&
-      (
-        <div>Connected.</div>
-      )}
-
-      {started && track && (
-        <div>
-          <img src={track.album?.images?.[0]?.url} alt={track.album?.name} width={200} />
-          <p>{track.name}</p>
-          <p>{track.artists.map((a) => a.name).join(", ")}</p>
+      {/* album cover in the portal */}
+      <div className="player-portal">
+        <div className="player-cover" style={{ "--portal-mask": `url("${portalMask}")` }}>
+          <img src={cover} alt={started && track ? track.album?.name : ""} />
         </div>
-      )}
+        <img className="player-frame" src={art.portal} width="166.84" height="201.24" alt="" />
+      </div>
 
-        <button onClick={() => playerRef.current?.previousTrack()}>
-          ⏮
+      <div className="player-info">
+        {started && track ? (
+          <>
+            <p className="player-title">{track.name}</p>
+            <p className="player-artist">{track.artists.map((a) => a.name).join(", ")}</p>
+          </>
+        ) : (
+          <>
+            <p className="player-title">{playerRef ? "Connected." : "Connecting…"}</p>
+            <p className="player-artist">Press play to start</p>
+          </>
+        )}
+      </div>
+
+      <div className="player-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+        <div className="player-played" style={{ width: `${progress * 100}%` }} />
+      </div>
+
+      <div className="player-controls">
+        <button className="player-btn" aria-label="Previous track" onClick={() => playerRef.current?.previousTrack()}>
+          <img src={art.prev} width="73" height="37" alt="" />
         </button>
 
-  
-        <div>
-        <button onClick={handlePlayPause}>
-          {!started ? "Start playing" : paused ? "⏸" : "▶"}
+        <button className="player-btn" aria-label={!started ? "Start playing" : paused ? "Pause" : "Play"} onClick={handlePlayPause}>
+          <img src={!started ? art.play : paused ? art.pause : art.play} width="73" height="37" alt="" />
         </button>
 
-        <button onClick={() => playerRef.current?.nextTrack()}>
-            ⏭
+        <button className="player-btn" aria-label="Next track" onClick={() => playerRef.current?.nextTrack()}>
+          <img src={art.next} width="73" height="37" alt="" />
         </button>
-        </div>
-    
+      </div>
     </main>
   );
 }

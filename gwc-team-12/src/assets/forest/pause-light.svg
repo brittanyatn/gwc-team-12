@@ -1,0 +1,17 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="73" height="37" viewBox="0 0 73 37" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Control Button">
+<g id="Oval">
+<ellipse cx="36.5" cy="18.5" rx="36.5" ry="18.5" fill="#FFF6E8" fill-opacity="0.85"/>
+<mask id="stroke0_0_98" fill="white">
+<path d="M73 18.5C73 28.7173 56.6584 37 36.5 37C16.3416 37 0 28.7173 0 18.5C0 8.28273 16.3416 0 36.5 0C56.6584 0 73 8.28273 73 18.5Z"/>
+</mask>
+<ellipse cx="36.5" cy="18.5" rx="36.5" ry="18.5" stroke-width="4" stroke="#5B2A4E" mask="url(#stroke0_0_98)"/>
+</g>
+<g id="Icon">
+<g id="Vector">
+<path d="M32.8333 12.0833V24.9167ZM40.1667 12.0833V24.9167Z" fill="black"/>
+<path d="M32.8333 12.0833V24.9167M40.1667 12.0833V24.9167" stroke-width="2.75" stroke-linecap="round" stroke="#3A1F35"/>
+</g>
+</g>
+</g>
+</svg>

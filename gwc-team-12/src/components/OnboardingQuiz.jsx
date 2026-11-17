@@ -1,6 +1,7 @@
 //(ginny) added on 11/6, these are the quiz questions :3
 import React, { useState } from 'react';
 import QuizQuestion from './QuizQuestion';
+import ForestCard, { useSystemForestTheme } from './ForestCard';
 
 const QUIZ_DATA = [
   {
@@ -52,6 +53,7 @@ const QUIZ_DATA = [
 
 export default function OnboardingQuiz({ onComplete }) {
   const [screen, setScreen] = useState('welcome');
+  const systemTheme = useSystemForestTheme();
   const [questionIdx, setQuestionIdx] = useState(0);
   const [tally, setTally] = useState({ lightForest: 0, darkForest: 0 });
   const [selectedTheme, setSelectedTheme] = useState('lightForest');
@@ -77,50 +79,57 @@ export default function OnboardingQuiz({ onComplete }) {
   };
 
   if (screen === 'welcome') {
+    // Not in Figma yet — styled to match the "Connect to Spotify" frame
     return (
-      <div className="quiz-card welcome-card">
-        <h2 className="brand-title">Enchanted Grove</h2>
-        <p className="brand-tagline">Tune your environment before you hit play.</p>
-        <button type="button" className="btn-primary" onClick={() => setScreen('quiz')}>
+      <ForestCard theme={systemTheme} className="welcome-card-forest">
+        <p className="forest-title">Enchanted Grove</p>
+        <p className="forest-body">Tune your environment before you hit play.</p>
+        <div className="forest-spacer" style={{ height: 14 }} />
+        <button type="button" className="btn-forest" onClick={() => setScreen('quiz')}>
           Take the Quiz
         </button>
-        <div className="skip-actions">
-          <button type="button" className="skip-link" onClick={() => handleSkip('lightForest')}>
+        <div className="forest-spacer" style={{ height: 6 }} />
+        <div className="skip-row">
+          <button type="button" className="forest-link" onClick={() => handleSkip('lightForest')}>
             Skip to Light Forest
           </button>
           <span className="divider">•</span>
-          <button type="button" className="skip-link" onClick={() => handleSkip('darkForest')}>
+          <button type="button" className="forest-link" onClick={() => handleSkip('darkForest')}>
             Skip to Dark Forest
           </button>
         </div>
-      </div>
+        <div className="forest-spacer" style={{ height: 30 }} />
+      </ForestCard>
     );
   }
 
   if (screen === 'reveal') {
+    // "Pre-results" frame — shown in the theme the quiz picked
     return (
-      <div className="quiz-card reveal-card">
-        <span className="badge">Attunement Chosen</span>
-        <h2 className="brand-title">
-          {selectedTheme === 'lightForest' ? 'Sunlit Canopy' : 'Moonlit Glade'}
-        </h2>
-        <p className="brand-tagline">
-          Theme assigned: <strong>{selectedTheme}</strong>
+      <ForestCard theme={selectedTheme} className="results-card">
+        <p className="forest-kicker">Attunement Chosen</p>
+        <p className="results-title">The forest has decided…</p>
+        <p className="results-mix">
+          Your mix: {selectedTheme === 'lightForest' ? 'Sunlit Canopy' : 'Moonlit Glade'}
         </p>
-        <button type="button" className="btn-primary" onClick={() => onComplete(selectedTheme)}>
-          DJ Spin That Shit
+        <p className="forest-kicker">Theme assigned: {selectedTheme}</p>
+        <div className="forest-spacer" style={{ height: 18 }} />
+        <button type="button" className="btn-forest" onClick={() => onComplete(selectedTheme)}>
+          DJ spin that shit
         </button>
-      </div>
+      </ForestCard>
     );
   }
 
   return (
     <QuizQuestion
+      key={questionIdx}
       data={QUIZ_DATA[questionIdx]}
       currentIndex={questionIdx}
       total={QUIZ_DATA.length}
       onSelect={handleOptionChoice}
       onSkip={handleSkip}
+      theme={systemTheme}
     />
   );
 }
