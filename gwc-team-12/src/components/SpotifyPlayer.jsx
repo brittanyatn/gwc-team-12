@@ -53,6 +53,15 @@ function getTestTrackUri() {
   return id ? `spotify:track:${id}` : null;
 }
 
+// Building a mix makes ~100 Spotify requests. React (in development) starts effects
+// twice, so share one build per token + answers instead of doing it all twice.
+let mixCache = { key: null, promise: null };
+function mixFor(token, theme, answers) {
+  const key = JSON.stringify([token, theme, answers]);
+  if (mixCache.key !== key) mixCache = { key, promise: buildForestMix(token, theme, answers) };
+  return mixCache.promise;
+}
+
 // The backend renews the Spotify login every hour; always ask it for the current one.
 async function currentToken(fallback) {
   try {
@@ -84,7 +93,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
     if (!token || token === "preview-token") return;
     let cancelled = false;
     setMixStatus("loading");
-    buildForestMix(token, theme, answers)
+    mixFor(token, theme, answers)
       .then((m) => {
         if (cancelled) return;
         setMix(m);

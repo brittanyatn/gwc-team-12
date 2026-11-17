@@ -1,28 +1,34 @@
-// Builds a "forest mix" from the listener's own Spotify history + their quiz answers.
+// Builds a "forest mix" from the listener's own Spotify history, shaped by their quiz answers.
 //
 // All calls go straight from the browser to Spotify with the user's token —
 // no listening data is sent anywhere else.
 //
 // 1. GENRES   Quiz answers + theme → weighted genre keywords.
 // 2. FAMILIAR Pool of songs the listener knows: top tracks (4 weeks / 6 months /
-//             all time), Liked Songs, and recently played. Each song gets a
-//             "familiarity" score from where it showed up.
-// 3. MATCH    Each song is scored by how well its artists' genres match the
-//             keywords (Spotify only tags genres on artists, not songs).
-// 4. DISCOVER New-to-them songs: deep cuts from albums by their best-matching
-//             artists, plus Spotify search results for the strongest genres.
-// 5. BLEND    The "familiar vs. discover" quiz answer sets the ratio.
+//             all time), Liked Songs, and recently played.
+// 3. MATCH    Which of the listener's main artists fit those genres? Spotify hides
+//             artist genres from new apps, but its search still filters by genre, so
+//             we ask it "is <artist> <genre>?" for each artist × top genre.
+//             Only songs by matching artists count as familiar picks.
+// 4. DISCOVER New songs in the same genres: deep cuts from the matching artists, and
+//             genre search limited to the years the listener usually plays.
+// 5. BLEND    The "familiar vs. discover" quiz answer sets the ratio. If too few of
+//             their artists match, themed new songs fill the gap — unrelated favourites
+//             are only a last resort.
 // 6. FLOW     Max 2 songs per artist, never the same artist back-to-back,
 //             opens with a familiar favourite.
 //
-// Spotify removed Recommendations / Audio Features / Related Artists for new
-// apps (Nov 2024), so this only uses endpoints that are still available.
+// Spotify removed Recommendations / Audio Features / Related Artists / artist genres
+// for new apps, so this only uses endpoints that still work.
 
 const API = "https://api.spotify.com/v1";
 const MIX_SIZE = 30;
 const DEFAULT_DISCOVER = 0.35; // used if the quiz was skipped
 const DEEP_CUT_ARTISTS = 4; // how many top-matching artists to dig into
 const DEEP_CUTS_PER_ARTIST = 3;
+const ARTISTS_TO_CHECK = 20; // listener's main artists to test against the genres
+const KEYWORDS_TO_CHECK = 5; // strongest genres from the answers
+const SEARCH_LIMIT = 10;     // Spotify's max page size for search in development mode
 
 // Genre keywords for each theme, used even if the quiz was skipped.
 export const THEME_GENRES = {
@@ -35,7 +41,7 @@ export const MIX_NAMES = {
   darkForest: "Moonlit Glade",
 };
 
-async function spotify(token, path, options = {}) {
+async function spotify(token, path, options = {}, retried = false) {
   const res = await fetch(path.startsWith("http") ? path : API + path, {
     ...options,
     headers: {
@@ -44,6 +50,12 @@ async function spotify(token, path, options = {}) {
       ...options.headers,
     },
   });
+  if (res.status === 429 && !retried) {
+    // rate limited: wait as long as Spotify asks (capped), then try once more
+    const wait = Math.min(Number(res.headers.get("Retry-After")) || 1, 5);
+    await new Promise((r) => setTimeout(r, wait * 1000));
+    return spotify(token, path, options, true);
+  }
   if (!res.ok) {
     const err = new Error(`Spotify ${options.method || "GET"} ${path} → ${res.status}`);
     err.status = res.status;
@@ -79,15 +91,15 @@ export function discoveryLevel(answers = []) {
   return pick ? pick.discover : DEFAULT_DISCOVER;
 }
 
-function scoreGenres(artistGenres, weights) {
-  let score = 0;
-  for (const genre of artistGenres) {
-    for (const [keyword, w] of weights) {
-      if (genre.includes(keyword)) score += w;
-    }
-  }
-  return score;
+// Run `fn` over items with at most `size` requests in flight
+async function inPool(items, size, fn) {
+  let next = 0;
+  await Promise.all(Array.from({ length: size }, async () => {
+    while (next < items.length) await fn(items[next++]);
+  }));
 }
+
+const releaseYear = (t) => Number(String(t.album?.release_date || "").slice(0, 4)) || null;
 
 const primaryArtist = (t) => t.artists?.[0]?.id || t.id;
 
@@ -140,45 +152,52 @@ export async function buildForestMix(token, theme, answers = []) {
 
   log.push(`familiar pool: ${known.size} (liked ${likedCount}, recent ${recent?.items.length ?? 0})`);
 
-  // ---------- 3. genre match ----------
-  const artistGenres = new Map(); // artist id → genres
-  const topArtists = await attempt(log, "top artists", () =>
-    spotify(token, "/me/top/artists?limit=50&time_range=medium_term"));
-  topArtists?.items.forEach((a) => artistGenres.set(a.id, a.genres || []));
+  // ---------- 3. which of the listener's artists fit the answers? ----------
+  const keywords = [...weights.entries()].sort((a, b) => b[1] - a[1]).slice(0, KEYWORDS_TO_CHECK);
 
-  const missing = [...new Set([...known.values()].flatMap(({ track }) => track.artists.map((a) => a.id)))]
-    .filter((id) => id && !artistGenres.has(id))
-    .slice(0, 300);
-  for (let i = 0; i < missing.length; i += 50) {
-    const batch = await attempt(log, "artist genres", () =>
-      spotify(token, `/artists?ids=${missing.slice(i, i + 50).join(",")}`));
-    if (!batch) break;
-    batch.artists.forEach((a) => a && artistGenres.set(a.id, a.genres || []));
+  // their main artists, ranked by how much they play them
+  const artistRank = new Map();
+  for (const { track, fam } of known.values()) {
+    const a = track.artists?.[0];
+    if (!a?.id || !a.name) continue;
+    const e = artistRank.get(a.id) || { id: a.id, name: a.name, fam: 0 };
+    e.fam += fam;
+    artistRank.set(a.id, e);
   }
-  if (![...artistGenres.values()].some((g) => g.length)) {
-    log.push("no artist genres from Spotify — leaning on search");
-  }
+  const mainArtists = [...artistRank.values()].sort((a, b) => b.fam - a.fam).slice(0, ARTISTS_TO_CHECK);
 
-  const genreScoreOf = (track) =>
-    scoreGenres(track.artists.flatMap((a) => artistGenres.get(a.id) || []), weights);
-
-  const familiar = [...known.values()]
-    .map((e) => ({ ...e, match: genreScoreOf(e.track) }))
-    .sort((a, b) =>
-      // genre matches first, then strongest match + most familiar
-      (b.match > 0) - (a.match > 0) || (b.match + b.fam) - (a.match + a.fam));
-  log.push(`genre matches among them: ${familiar.filter((e) => e.match > 0).length}`);
-
-  // ---------- 4. discovery pool ----------
-  // a) deep cuts: other songs by the artists that best fit the answers
-  const artistFit = new Map(); // artist id → fit score
-  familiar.forEach(({ track, match, fam }) => {
-    if (match <= 0) return;
-    const id = primaryArtist(track);
-    artistFit.set(id, (artistFit.get(id) || 0) + match + fam);
+  const artistFit = new Map(); // artist id → sum of matching genre weights
+  const artistGenresFound = new Map(); // artist id → matching genres (for the log)
+  let failedChecks = 0;
+  const checks = mainArtists.flatMap((artist) => keywords.map(([genre, w]) => ({ artist, genre, w })));
+  await inPool(checks, 4, async ({ artist, genre, w }) => {
+    const q = encodeURIComponent(`artist:"${artist.name.replace(/"/g, "")}" genre:"${genre}"`);
+    try {
+      const res = await spotify(token, `/search?type=artist&limit=3&q=${q}`);
+      if (res.artists.items.some((x) => x.id === artist.id)) {
+        artistFit.set(artist.id, (artistFit.get(artist.id) || 0) + w);
+        artistGenresFound.set(artist.id, [...(artistGenresFound.get(artist.id) || []), genre]);
+      }
+    } catch {
+      failedChecks++;
+    }
   });
-  const digInto = [...artistFit.entries()].sort((a, b) => b[1] - a[1]).slice(0, DEEP_CUT_ARTISTS);
+  log.push(`artists matching your answers: ${artistFit.size} of ${mainArtists.length}` +
+    (failedChecks ? ` (${failedChecks} checks failed)` : ""));
 
+  const fitOf = (track) => Math.max(0, ...track.artists.map((a) => artistFit.get(a.id) || 0));
+  const familiar = [...known.values()]
+    .map((e) => ({ ...e, match: fitOf(e.track) }))
+    .filter((e) => e.match > 0)
+    .sort((a, b) => (b.match + b.fam) - (a.match + a.fam));
+  const unmatched = [...known.values()]
+    .filter((e) => fitOf(e.track) === 0)
+    .sort((a, b) => b.fam - a.fam);
+  log.push(`your songs that fit: ${familiar.length}`);
+
+  // ---------- 4. discovery pool (same genres, new to them) ----------
+  // a) deep cuts: other songs by the artists that fit best
+  const digInto = [...artistFit.entries()].sort((a, b) => b[1] - a[1]).slice(0, DEEP_CUT_ARTISTS);
   const deepCuts = [];
   for (const [artistId] of digInto) {
     const albums = await attempt(log, "artist albums", () =>
@@ -195,15 +214,22 @@ export async function buildForestMix(token, theme, answers = []) {
   }
   log.push(`deep cuts: ${deepCuts.length} from ${digInto.length} artists`);
 
-  // b) Spotify search for the strongest genres
+  // b) genre search, limited to the years they usually listen to
+  const years = (familiar.length >= 5 ? familiar : [...known.values()])
+    .map((e) => releaseYear(e.track)).filter(Boolean).sort((a, b) => a - b);
+  const pct = (p) => years[Math.min(years.length - 1, Math.floor(p * years.length))];
+  const yearFilter = years.length >= 5 ? ` year:${pct(0.15) - 2}-${pct(0.9) + 1}` : "";
+
   const searched = [];
-  const keywords = [...weights.entries()].sort((a, b) => b[1] - a[1]).map(([g]) => g).slice(0, 4);
-  for (const keyword of keywords) {
-    const res = await attempt(log, `search "${keyword}"`, () =>
-      spotify(token, `/search?type=track&limit=10&q=${encodeURIComponent(`genre:"${keyword}"`)}`));
-    res?.tracks.items.forEach((t) => !known.has(t.id) && searched.push(t));
+  for (const [genre] of keywords.slice(0, 3)) {
+    for (const offset of [0, SEARCH_LIMIT]) {
+      const q = encodeURIComponent(`genre:"${genre}"${yearFilter}`);
+      const res = await attempt(log, `search "${genre}"`, () =>
+        spotify(token, `/search?type=track&limit=${SEARCH_LIMIT}&offset=${offset}&q=${q}`));
+      res?.tracks.items.forEach((t) => !known.has(t.id) && !searched.some((x) => x.id === t.id) && searched.push(t));
+    }
   }
-  log.push(`search finds: ${searched.length}`);
+  log.push(`genre finds: ${searched.length}${yearFilter ? ` (${yearFilter.trim()})` : ""}`);
 
   // alternate deep cuts and search finds so neither dominates
   const discovery = [];
@@ -240,10 +266,16 @@ export async function buildForestMix(token, theme, answers = []) {
     fam.push(...take(familiarList, Math.min(wantFamiliar - fam.length, room()), cap));
     disc.push(...take(discovery, Math.min(wantDiscover - disc.length, room()), cap));
   }
-  // if one side ran short, let the other side fill the gap
+  // if one side ran short, fill with themed songs from the other side
   for (const cap of [3, Infinity]) {
     fam.push(...take(familiarList, room(), cap));
     disc.push(...take(discovery, room(), cap));
+  }
+  // last resort: favourites that didn't match the answers
+  if (room() > 0) {
+    const filler = take(unmatched.map((e) => e.track), room(), 3);
+    fam.push(...filler);
+    log.push(`filled ${filler.length} with favourites outside your answers`);
   }
 
   // ---------- 6. flow ----------

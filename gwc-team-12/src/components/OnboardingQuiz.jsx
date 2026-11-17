@@ -36,9 +36,9 @@ const QUIZ_DATA = [
     id: 4,
     question: "What sound fits your mood right now?",
     options: [
-      { text: "Warm acoustic & breezy strings", light: 2, dark: 0, genres: ["acoustic", "folk", "singer-songwriter"] },
-      { text: "Deep bass & driving beats", light: 0, dark: 2, genres: ["electronic", "house", "hip hop", "techno"] },
-      { text: "Dreamy lo-fi & ambient pads", light: 1, dark: 1, genres: ["lo-fi", "ambient", "chill"] },
+      { text: "Warm acoustic & breezy strings", light: 2, dark: 0, weight: 2, genres: ["acoustic", "folk", "singer-songwriter"] },
+      { text: "Deep bass & driving beats", light: 0, dark: 2, weight: 2, genres: ["electronic", "house", "hip hop", "techno"] },
+      { text: "Dreamy lo-fi & ambient pads", light: 1, dark: 1, weight: 2, genres: ["lo-fi", "ambient", "chill"] },
     ]
   },
   {
