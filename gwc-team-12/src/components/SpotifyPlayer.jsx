@@ -52,7 +52,7 @@ function getTestTrackUri() {
   return id ? `spotify:track:${id}` : null;
 }
 
-function SpotifyPlayer({ token, theme = "lightForest", answers = [] }) {
+function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
   const playerRef = useRef(null);
   const [track, setTrack] = useState(null);
   const [paused, setPaused] = useState(true); // note: true means music IS playing (set from !state.paused)
@@ -192,6 +192,10 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [] }) {
 
     };
 
+    // Coming back to the player (e.g. after "‹ Quiz"): the SDK is already loaded
+    // and won't announce itself again, so set the player up straight away.
+    if (window.Spotify?.Player) window.onSpotifyWebPlaybackSDKReady();
+
         if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
       const script = document.createElement("script");
       script.src = "https://sdk.scdn.co/spotify-player.js";
@@ -225,6 +229,15 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [] }) {
       </div>
       <div className="player-layer player-fireflies" aria-hidden="true" dangerouslySetInnerHTML={{ __html: art.fireflies }} />
       <img className="player-layer" src={art.grass} width="349" height="371" alt="" />
+
+      {/* Back to the quiz — top-left corner of the widget */}
+      {onBack && (
+        <div className="back-pill">
+          <button type="button" onClick={() => { playerRef.current?.pause(); onBack(); }}>
+            ‹ Quiz
+          </button>
+        </div>
+      )}
 
       {/* Save / open the forest mix — top-right corner of the widget */}
       {mixStatus === "ready" && (

@@ -88,6 +88,24 @@ export default function OnboardingQuiz({ onComplete }) {
     }
   };
 
+  // Back: undo the most recent answer and return to that question
+  const handleBack = () => {
+    if (screen === 'quiz' && questionIdx === 0) {
+      setScreen('welcome');
+      return;
+    }
+    const last = answers[answers.length - 1];
+    if (last) {
+      setTally({
+        lightForest: tally.lightForest - last.light,
+        darkForest: tally.darkForest - last.dark,
+      });
+      setAnswers(answers.slice(0, -1));
+    }
+    setQuestionIdx(Math.max(answers.length - 1, 0));
+    setScreen('quiz');
+  };
+
   const handleSkip = (theme = 'lightForest') => {
     onComplete(theme, answers); // skipped: mix uses the theme + any answers so far
   };
@@ -121,6 +139,9 @@ export default function OnboardingQuiz({ onComplete }) {
     // "Pre-results" frame — shown in the theme the quiz picked
     return (
       <ForestCard theme={selectedTheme} className="results-card">
+        <button type="button" className="forest-link forest-back" onClick={handleBack}>
+          ‹ Back
+        </button>
         <p className="forest-kicker">Attunement Chosen</p>
         <p className="results-title">The forest has decided…</p>
         <p className="results-mix">
@@ -143,6 +164,7 @@ export default function OnboardingQuiz({ onComplete }) {
       total={QUIZ_DATA.length}
       onSelect={handleOptionChoice}
       onSkip={handleSkip}
+      onBack={handleBack}
       theme={systemTheme}
     />
   );

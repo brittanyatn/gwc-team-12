@@ -167,6 +167,31 @@
 .quiz-steps {
   display: flex;
   gap: 4px;
+  min-width: 0;
+}
+
+.quiz-header-forest {
+  gap: 12px;
+}
+
+.quiz-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.quiz-header-right {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* "‹ Back" in the top-left corner of the results card */
+.forest-card > .forest-back {
+  position: absolute;
+  top: 24px;
+  left: 24px;
 }
 
 .quiz-header-right {
@@ -215,6 +240,8 @@
 
 .quiz-step {
   width: 28px;
+  min-width: 12px;
+  flex-shrink: 1;
   height: 4px;
   border-radius: 2px;
   background: var(--forest-step-off);
@@ -590,6 +617,13 @@
 
 /* ---------- Save / open mix pill (inside the player widget) ---------- */
 
+.player-card > .back-pill {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+}
+
 .player-card > .mix-pill {
   position: absolute;
   top: 14px;
@@ -597,6 +631,7 @@
   z-index: 2;
 }
 
+.back-pill button,
 .mix-pill button,
 .mix-pill a,
 .mix-pill span {
@@ -619,6 +654,7 @@
   cursor: pointer;
 }
 
+.back-pill button:hover,
 .mix-pill button:hover,
 .mix-pill a:hover {
   background: rgba(0, 0, 0, 0.55);
@@ -631,6 +667,7 @@
   opacity: 0.75;
 }
 
+.back-pill button:focus-visible,
 .mix-pill button:focus-visible,
 .mix-pill a:focus-visible {
   outline: 2px solid var(--player-played);

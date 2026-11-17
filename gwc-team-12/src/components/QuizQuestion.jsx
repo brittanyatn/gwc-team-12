@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import ForestCard from './ForestCard';
 
-export default function QuizQuestion({ data, currentIndex, total, onSelect, onSkip, theme }) {
+export default function QuizQuestion({ data, currentIndex, total, onSelect, onSkip, onBack, theme }) {
   const [selectedIdx, setSelectedIdx] = useState(null);
 
   if (!data) return null; // Safe guard against undefined data
@@ -21,7 +21,12 @@ export default function QuizQuestion({ data, currentIndex, total, onSelect, onSk
   return (
     <ForestCard theme={theme} className="quiz-card-forest">
       <div className="quiz-header-forest">
-        <span className="quiz-counter">Question {currentIndex + 1} of {total}</span>
+        <div className="quiz-header-left">
+          <button type="button" className="forest-link" aria-label="Back" onClick={onBack}>
+            ‹ Back
+          </button>
+          <span className="quiz-counter">{currentIndex + 1} of {total}</span>
+        </div>
         <div className="quiz-header-right">
           <div className="quiz-steps" aria-hidden="true">
             {Array.from({ length: total }, (_, i) => (

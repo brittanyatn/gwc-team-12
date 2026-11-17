@@ -40,7 +40,7 @@ function App() {
     ) : 
     (
     // (ginny) pass chosen theme to player
-      <SpotifyPlayer token={token} theme={theme} answers={quizAnswers} />
+      <SpotifyPlayer token={token} theme={theme} answers={quizAnswers} onBack={() => setTheme(null)} />
     )}
     </div>
 
