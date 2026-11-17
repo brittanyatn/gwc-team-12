@@ -454,6 +454,98 @@
   display: block;
 }
 
+.player-cover-art {
+  position: relative;
+  animation: cover-fade-in 0.8s ease-out both;
+}
+
+@keyframes cover-fade-in {
+  from { opacity: 0; transform: scale(1.08); filter: blur(6px); }
+  to   { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+/* ---------- Swirling portal vortex (before the first song plays) ----------
+   Drawn in PortalVortex.jsx. Low-contrast: the theme's lightest colour plus
+   one slightly darker shade for the arms, and a hair darker at the rim. */
+
+.lightForest {
+  --vortex-light: #fff6e8;   /* lightest colour in the light theme */
+  --vortex-shade: #f2dfc4;   /* slightly darker: the spiral arms */
+  --vortex-edge: #ead3b3;    /* rim of the portal, for depth */
+}
+
+.darkForest {
+  --vortex-light: #effffd;   /* lightest colour in the dark theme */
+  --vortex-shade: #d2efee;
+  --vortex-edge: #c0e5e6;
+}
+
+.vortex {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.8s ease;
+}
+
+.vortex.is-hidden {
+  opacity: 0;
+}
+
+.vortex-stop-light { stop-color: var(--vortex-light); }
+.vortex-stop-edge  { stop-color: var(--vortex-edge); }
+
+.vortex-arm {
+  fill: none;
+  stroke: var(--vortex-shade);
+  stroke-width: 9;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.vortex-arm--glow {
+  stroke-width: 18;
+  opacity: 0.45;
+}
+
+.vortex-arm--back {
+  stroke: var(--vortex-edge);
+  stroke-width: 5;
+  opacity: 0.55;
+}
+
+/* the whole spiral turns slowly around the portal's centre (100, 91 in the drawing) */
+.vortex-spin {
+  transform-origin: 100px 91px;
+  animation: vortex-spin 12s linear infinite;
+}
+
+.vortex-spin--slow {
+  animation-duration: 20s;
+}
+
+.vortex-core {
+  transform-origin: 100px 91px;
+  animation: vortex-pulse 5s ease-in-out infinite;
+}
+
+@keyframes vortex-spin {
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes vortex-pulse {
+  0%, 100% { transform: scale(0.92); opacity: 0.9; }
+  50%      { transform: scale(1.1);  opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vortex-spin,
+  .vortex-core,
+  .player-cover-art {
+    animation: none;
+  }
+}
+
 .player-frame {
   position: absolute;
   left: -3.44px;

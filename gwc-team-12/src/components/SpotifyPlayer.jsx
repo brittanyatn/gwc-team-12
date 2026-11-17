@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./Forest.css";
 import { buildForestMix, saveMixAsPlaylist } from "../lib/forestMix";
+import PortalVortex from "./PortalVortex";
 
 // Player art from the Figma midfi "Player · iPhone Large" frames
 import bgLight from "../assets/forest/bg-light.png";
@@ -259,7 +260,11 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       {/* album cover in the portal */}
       <div className="player-portal">
         <div className="player-cover" style={{ "--portal-mask": `url("${portalMask}")` }}>
-          <img src={cover} alt={started && track ? track.album?.name : ""} />
+          {/* swirling portal until the first song starts, then the album cover fades in */}
+          <PortalVortex hidden={started} />
+          {started && (
+            <img className="player-cover-art" src={cover} alt={track?.album?.name || ""} />
+          )}
         </div>
         <img className="player-frame" src={art.portal} width="166.84" height="201.24" alt="" />
       </div>
