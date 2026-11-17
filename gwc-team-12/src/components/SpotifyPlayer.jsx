@@ -17,6 +17,7 @@ import portalLight from "../assets/forest/portal-light.svg";
 import portalDark from "../assets/forest/portal-dark.svg";
 import portalMask from "../assets/forest/portal-mask.svg";
 import albumPlaceholder from "../assets/forest/album-placeholder.jpg";
+import spotifyWhite from "../assets/forest/spotify-white.svg";
 // PLACEHOLDER button art (Figma "Control Button" ovals, 73 × 37).
 // To swap in final art: replace these files, or point the imports at the new files.
 // Progress bar colors are placeholders too: --player-track / --player-played in Forest.css.
@@ -216,7 +217,6 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [] }) {
   const progress = duration ? Math.min(position / duration, 1) : 0;
 
   return (
-    <>
     <main className={`player-card ${theme}`}>
       {/* scenery */}
       <img className="player-layer player-bg" src={art.bg} alt="" />
@@ -225,6 +225,23 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [] }) {
       </div>
       <div className="player-layer player-fireflies" aria-hidden="true" dangerouslySetInnerHTML={{ __html: art.fireflies }} />
       <img className="player-layer" src={art.grass} width="349" height="371" alt="" />
+
+      {/* Save / open the forest mix — top-right corner of the widget */}
+      {mixStatus === "ready" && (
+        <div className="mix-pill">
+          {saveStatus === "saved" && savedUrl ? (
+            <a href={savedUrl} target="_blank" rel="noreferrer" title={`Open "${mix.name}" in Spotify`}>
+              <img src={spotifyWhite} width="14" height="14" alt="" /> Open in Spotify
+            </a>
+          ) : saveStatus === "saved" ? (
+            <span>✓ Saved</span>
+          ) : (
+            <button type="button" onClick={handleSaveMix} disabled={saveStatus === "saving"} title="Save this mix as a private playlist">
+              {saveStatus === "saving" ? "Saving…" : saveStatus === "error" ? "Retry save" : "+ Save mix"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* album cover in the portal */}
       <div className="player-portal">
@@ -270,20 +287,6 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [] }) {
         </button>
       </div>
     </main>
-
-    {/* Save the forest mix to the listener's Spotify library */}
-    {mixStatus === "ready" && (
-      <p className={`mix-save ${theme}`}>
-        {saveStatus === "saved" ? (
-          savedUrl ? <a href={savedUrl} target="_blank" rel="noreferrer">Saved! Open “{mix.name}” in Spotify</a> : "Saved to your Spotify library!"
-        ) : (
-          <button type="button" onClick={handleSaveMix} disabled={saveStatus === "saving"}>
-            {saveStatus === "saving" ? "Saving…" : saveStatus === "error" ? "Couldn't save — try again" : "Save this mix to Spotify"}
-          </button>
-        )}
-      </p>
-    )}
-    </>
   );
 }
 

@@ -49,6 +49,16 @@ const QUIZ_DATA = [
       { text: "A silver-laced obsidian charm", light: 0, dark: 2, genres: ["post-punk", "darkwave", "alternative"] },
       { text: "A firefly glass lantern", light: 1, dark: 1, genres: ["jazz", "bossa nova", "chill"] },
     ]
+  },
+  {
+    id: 6,
+    // `discover` = share of the mix that's new-to-you songs (0 = all favourites, 1 = all new)
+    question: "A traveler offers you a map. Where do you go?",
+    options: [
+      { text: "The paths I already know", light: 1, dark: 1, discover: 0.15 },
+      { text: "A little off the trail", light: 1, dark: 1, discover: 0.4 },
+      { text: "Deep into uncharted woods", light: 1, dark: 1, discover: 0.7 },
+    ]
   }
 ];
 

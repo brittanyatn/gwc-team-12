@@ -588,35 +588,51 @@
   }
 }
 
-/* ---------- "Save this mix" link under the player ---------- */
+/* ---------- Save / open mix pill (inside the player widget) ---------- */
 
-.mix-save {
-  margin: 12px 0 0;
-  text-align: center;
-  font-family: "Figtree", system-ui, sans-serif;
-  font-size: 13px;
-  font-weight: 600;
+.player-card > .mix-pill {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
 }
 
-.mix-save button,
-.mix-save a {
-  padding: 0;
-  background: none;
-  border: none;
+.mix-pill button,
+.mix-pill a,
+.mix-pill span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
   box-shadow: none;
-  font: inherit;
-  color: var(--forest-muted);
-  text-decoration: underline;
+  font-family: "Figtree", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  text-decoration: none;
   cursor: pointer;
 }
 
-.mix-save button:hover,
-.mix-save a:hover {
-  color: var(--forest-ink);
-  border: none;
+.mix-pill button:hover,
+.mix-pill a:hover {
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
 }
 
-.mix-save button:disabled {
+.mix-pill button:disabled {
   cursor: progress;
-  opacity: 0.7;
+  opacity: 0.75;
+}
+
+.mix-pill button:focus-visible,
+.mix-pill a:focus-visible {
+  outline: 2px solid var(--player-played);
+  outline-offset: 2px;
 }
