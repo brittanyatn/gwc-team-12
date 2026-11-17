@@ -44,7 +44,13 @@ const store = {
     try { globalThis.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* private mode etc. */ }
   },
 };
-const searchBlocked = () => Date.now() < store.get(BLOCK_KEY, 0);
+// The block is Spotify's, per app: remember it with the login it hit, so switching
+// to another Spotify app (new keys → new login) starts searching again.
+const loginTag = (token) => String(token).slice(-12);
+const searchBlocked = (token) => {
+  const b = store.get(BLOCK_KEY, null);
+  return !!b && b.login === loginTag(token) && Date.now() < b.until;
+};
 const SEARCH_LIMIT = 10;     // Spotify's max page size for search in development mode
 
 // Genre keywords for each theme — only used when the quiz was skipped.
@@ -60,7 +66,7 @@ export const MIX_NAMES = {
 };
 
 async function spotify(token, path, options = {}, retried = false) {
-  if (path.startsWith("/search") && searchBlocked()) {
+  if (path.startsWith("/search") && searchBlocked(token)) {
     const err = new Error("Spotify search is paused (rate limit)");
     err.status = 429;
     throw err;
@@ -77,7 +83,7 @@ async function spotify(token, path, options = {}, retried = false) {
     const wait = Number(res.headers.get("Retry-After")) || 0;
     if (path.startsWith("/search")) {
       // don't hammer a blocked endpoint: pause all searches (at least 10 min, or as long as Spotify says)
-      store.set(BLOCK_KEY, Date.now() + Math.max(wait, 600) * 1000);
+      store.set(BLOCK_KEY, { login: loginTag(token), until: Date.now() + Math.max(wait, 600) * 1000 });
     } else if (!retried && wait <= 5) {
       await new Promise((r) => setTimeout(r, Math.max(wait, 1) * 1000));
       return spotify(token, path, options, true);
@@ -241,7 +247,7 @@ export async function buildForestMix(token, theme, answers = []) {
   store.set(CACHE_KEY, cache);
   log.push(`artists matching your answers: ${artistFit.size} of ${mainArtists.length}` +
     ` (${cachedChecks} remembered` + (failedChecks ? `, ${failedChecks} skipped` : "") + ")");
-  if (searchBlocked()) log.push("Spotify search is paused (rate limit) — leaning on your own songs");
+  if (searchBlocked(token)) log.push("Spotify search is paused (rate limit) — leaning on your own songs");
 
   const fitOf = (track) => Math.max(0, ...track.artists.map((a) => artistFit.get(a.id) || 0));
   const familiar = [...known.values()]
