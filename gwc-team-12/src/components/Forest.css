@@ -1,0 +1,767 @@
+/* Styles for the Figma "GWC Spotify Widgets" user flow (connect, quiz, pre-results).
+   Colors come from the Figma light/dark frames. */
+
+.lightForest {
+  --forest-bg: #fff6e8;
+  --forest-ink: #5b2a4e;          /* headings, primary button */
+  --forest-muted: #8c6b80;        /* small labels, body copy */
+  --forest-accent: #5b2a4e;       /* active steps, selected answer */
+  --forest-on-accent: #fff6e8;
+  --forest-step-off: rgba(91, 42, 78, 0.18);
+  --forest-answer-bg: #f6eadb;
+  --forest-answer-border: rgba(91, 42, 78, 0.55);
+  --forest-answer-ink: #5b2a4e;
+}
+
+.darkForest {
+  --forest-bg: #0f1b2d;
+  --forest-ink: #fff6e8;
+  --forest-muted: #9fb3c8;
+  --forest-accent: #3fd9c4;
+  --forest-on-accent: #0f1b2d;
+  --forest-step-off: rgba(255, 246, 232, 0.18);
+  --forest-answer-bg: #17263b;
+  --forest-answer-border: rgba(63, 217, 196, 0.55);
+  --forest-answer-ink: #fff6e8;
+}
+
+/* ---------- Card shell (349 × 371 in Figma) ---------- */
+
+.forest-card {
+  position: relative;
+  box-sizing: border-box;
+  width: 349px;
+  height: 371px;
+  margin: 0 auto;
+  padding: 24px;
+  border-radius: 28px;
+  overflow: hidden;
+  background: var(--forest-bg);
+  font-family: "Figtree", system-ui, sans-serif;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.forest-floor {
+  position: absolute;
+  left: -87px;
+  top: 312px;
+  width: 524px;
+  height: 148px;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Keep every piece of content above the forest floor art */
+.forest-card > :not(.forest-floor) {
+  position: relative;
+  z-index: 1;
+}
+
+.forest-card p {
+  margin: 0;
+}
+
+.forest-spacer {
+  flex-shrink: 0;
+  width: 1px;
+}
+
+/* ---------- 1 · Connect to Spotify ---------- */
+
+.connect-card {
+  gap: 6px;
+}
+
+.forest-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.32px;
+  line-height: normal;
+  color: var(--forest-muted);
+  text-transform: uppercase;
+}
+
+.forest-lead {
+  font-size: 17px;
+  font-weight: 500;
+  line-height: normal;
+  color: var(--forest-muted);
+}
+
+.forest-title {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: normal;
+  color: var(--forest-ink);
+}
+
+.forest-body {
+  width: 250px;
+  font-size: 14px;
+  line-height: 19px;
+  color: var(--forest-muted);
+}
+
+.btn-spotify-signin {
+  position: relative;
+  box-sizing: border-box;
+  width: 260px;
+  height: 50px;
+  padding: 13px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: #000;
+  border: 1px solid #e5e5e5;
+  border-radius: 28px;
+  filter: drop-shadow(0 4px 2px rgba(0, 0, 0, 0.25));
+  font-family: "Roboto", system-ui, sans-serif;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: normal;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn-spotify-signin:hover {
+  color: #fff;
+  background: #1a1a1a;
+}
+
+.btn-spotify-signin img {
+  flex-shrink: 0;
+}
+
+/* ---------- 2–6 · Quiz question ---------- */
+
+.quiz-card-forest {
+  align-items: flex-start;
+  gap: 12px;
+  padding-top: 44px;
+  text-align: left;
+}
+
+.forest-card > .quiz-header-forest {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  width: 301px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.quiz-counter {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: normal;
+  color: var(--forest-muted);
+}
+
+.quiz-steps {
+  display: flex;
+  gap: 4px;
+  min-width: 0;
+}
+
+.quiz-header-forest {
+  gap: 12px;
+}
+
+.quiz-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.quiz-header-right {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* "‹ Back" in the top-left corner of the results card */
+.forest-card > .forest-back {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+}
+
+.quiz-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Small text-only links: "Skip", "Skip to Light Forest", etc. */
+.forest-card .forest-link {
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: normal;
+  color: var(--forest-muted);
+  cursor: pointer;
+}
+
+.forest-card .forest-link:hover {
+  color: var(--forest-ink);
+  text-decoration: underline;
+}
+
+.forest-card .forest-link:focus-visible {
+  outline: 2px solid var(--forest-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Welcome (quiz intro) ---------- */
+
+.welcome-card-forest {
+  gap: 6px;
+}
+
+.skip-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--forest-muted);
+  font-size: 12px;
+}
+
+.quiz-step {
+  width: 28px;
+  min-width: 12px;
+  flex-shrink: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--forest-step-off);
+}
+
+.quiz-step.is-done {
+  background: var(--forest-accent);
+}
+
+.quiz-question-forest {
+  width: 100%;
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 29px;
+  color: var(--forest-ink);
+}
+
+.quiz-answers {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Reset the template's global button styles from App.css */
+.forest-card .quiz-answer {
+  box-sizing: border-box;
+  width: 100%;
+  height: 46px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  background: var(--forest-answer-bg);
+  border: 1.5px solid var(--forest-answer-border);
+  border-radius: 14px;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: normal;
+  color: var(--forest-answer-ink);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.forest-card .quiz-answer:hover,
+.forest-card .quiz-answer.is-selected {
+  background: var(--forest-accent);
+  border-color: var(--forest-accent);
+  color: var(--forest-on-accent);
+}
+
+.forest-card .quiz-answer.is-selected {
+  font-weight: 600;
+}
+
+.forest-card .quiz-answer:focus-visible,
+.forest-card .btn-forest:focus-visible,
+.btn-spotify-signin:focus-visible {
+  outline: 2px solid var(--forest-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- 7 · Pre-results ---------- */
+
+.results-card {
+  gap: 8px;
+}
+
+.results-title {
+  width: 270px;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 35px;
+  color: var(--forest-ink);
+}
+
+.results-mix {
+  font-size: 15px;
+  line-height: normal;
+  color: var(--forest-muted);
+}
+
+.forest-card .btn-forest {
+  padding: 15px 30px;
+  background: var(--forest-accent);
+  border: none;
+  border-radius: 28px;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: normal;
+  color: var(--forest-on-accent);
+  cursor: pointer;
+}
+
+.forest-card .btn-forest:hover {
+  filter: brightness(1.1);
+}
+
+/* ---------- Player (Figma midfi "Player · iPhone Large") ---------- */
+
+.lightForest {
+  --player-title: #fff6e8;
+  --player-artist: #f2d9b3;
+  --player-track: rgba(255, 246, 232, 0.3);
+  --player-played: #e8cc84;
+}
+
+.darkForest {
+  --player-title: #effffd;
+  --player-artist: #a9dce3;
+  --player-track: rgba(239, 255, 253, 0.3);
+  --player-played: #3fd9c4;
+}
+
+.player-card {
+  position: relative;
+  box-sizing: border-box;
+  width: 349px;
+  height: 371px;
+  margin: 0 auto;
+  padding: 18px;
+  border-radius: 28px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro", system-ui, sans-serif;
+}
+
+/* Scenery layers: background → bushes → fireflies → grass */
+.player-layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 349px;
+  height: 371px;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.player-bg {
+  object-fit: cover;
+  border-radius: 28px;
+}
+
+.player-bushes {
+  -webkit-mask-image: var(--bush-mask);
+  mask-image: var(--bush-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: -0.225px 161.416px;
+  mask-position: -0.225px 161.416px;
+  -webkit-mask-size: 348.397px 187.549px;
+  mask-size: 348.397px 187.549px;
+  mask-mode: alpha;
+}
+
+.player-bushes img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Everything in the normal flow sits above the scenery */
+.player-card > .player-portal,
+.player-card > .player-info,
+.player-card > .player-progress,
+.player-card > .player-controls {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+/* Portal window with the album cover inside */
+.player-portal {
+  width: 159.96px;
+  height: 194.36px;
+}
+
+.player-cover {
+  position: absolute;
+  left: -26.92px;
+  top: 0;
+  width: 213.796px;
+  height: 213.796px;
+  -webkit-mask-image: var(--portal-mask);
+  mask-image: var(--portal-mask);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: 26.918px 0;
+  mask-position: 26.918px 0;
+  -webkit-mask-size: 159.96px 194.36px;
+  mask-size: 159.96px 194.36px;
+  mask-mode: alpha;
+}
+
+.player-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.player-cover-art {
+  position: relative;
+  animation: cover-fade-in 0.8s ease-out both;
+}
+
+@keyframes cover-fade-in {
+  from { opacity: 0; transform: scale(1.08); filter: blur(6px); }
+  to   { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+/* ---------- Swirling portal vortex (before the first song plays) ----------
+   Drawn in PortalVortex.jsx. Low-contrast: the theme's lightest colour plus
+   one slightly darker shade for the arms, and a hair darker at the rim. */
+
+.lightForest {
+  --vortex-light: #fff6e8;   /* lightest colour in the light theme */
+  --vortex-shade: #f2dfc4;   /* slightly darker: the spiral arms */
+  --vortex-edge: #ead3b3;    /* rim of the portal, for depth */
+}
+
+.darkForest {
+  --vortex-light: #effffd;   /* lightest colour in the dark theme */
+  --vortex-shade: #d2efee;
+  --vortex-edge: #c0e5e6;
+}
+
+.vortex {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transition: opacity 0.8s ease;
+}
+
+.vortex.is-hidden {
+  opacity: 0;
+}
+
+.vortex-stop-light { stop-color: var(--vortex-light); }
+.vortex-stop-edge  { stop-color: var(--vortex-edge); }
+
+.vortex-arm {
+  fill: none;
+  stroke: var(--vortex-shade);
+  stroke-width: 9;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.vortex-arm--glow {
+  stroke-width: 18;
+  opacity: 0.45;
+}
+
+.vortex-arm--back {
+  stroke: var(--vortex-edge);
+  stroke-width: 5;
+  opacity: 0.55;
+}
+
+/* the whole spiral turns slowly around the portal's centre (100, 91 in the drawing) */
+.vortex-spin {
+  transform-origin: 100px 91px;
+  animation: vortex-spin 12s linear infinite;
+}
+
+.vortex-spin--slow {
+  animation-duration: 20s;
+}
+
+.vortex-core {
+  transform-origin: 100px 91px;
+  animation: vortex-pulse 5s ease-in-out infinite;
+}
+
+@keyframes vortex-spin {
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes vortex-pulse {
+  0%, 100% { transform: scale(0.92); opacity: 0.9; }
+  50%      { transform: scale(1.1);  opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vortex-spin,
+  .vortex-core,
+  .player-cover-art {
+    animation: none;
+  }
+}
+
+.player-frame {
+  position: absolute;
+  left: -3.44px;
+  top: -3.44px;
+}
+
+/* Track info */
+.player-info {
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  text-align: center;
+  line-height: normal;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+}
+
+.player-info p {
+  margin: 0;
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-title {
+  font-size: 15px;
+  font-weight: 590;
+  color: var(--player-title);
+}
+
+.player-artist {
+  font-size: 13px;
+  color: var(--player-artist);
+}
+
+/* Progress bar */
+.player-progress {
+  width: 220px;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--player-track);
+}
+
+.player-played {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--player-played);
+}
+
+/* Oval control buttons (art is in the SVGs) */
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.player-card .player-btn {
+  width: 73px;
+  height: 37px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.player-card .player-btn:hover {
+  transform: scale(1.05);
+}
+
+.player-card .player-btn:active {
+  transform: scale(0.95);
+  background: none;
+}
+
+.player-card .player-btn:focus-visible {
+  outline: 2px solid var(--player-played);
+  outline-offset: 2px;
+}
+
+.player-btn img {
+  display: block;
+}
+
+/* ---------- Animated fireflies ----------
+   The fireflies SVG is inlined; each <g> inside "Fireflies" is one firefly.
+   Each one drifts on its own path and pulses its glow. Timings are varied so
+   they never move in sync. */
+
+.player-fireflies svg {
+  display: block;
+  overflow: visible;
+}
+
+.player-fireflies svg > g > g {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: firefly-drift-a 9s ease-in-out infinite;
+}
+
+.player-fireflies svg > g > g > circle {
+  animation: firefly-glow 3s ease-in-out infinite;
+}
+
+.player-fireflies svg > g > g:nth-child(2n)  { animation-name: firefly-drift-b; animation-duration: 11s; }
+.player-fireflies svg > g > g:nth-child(3n)  { animation-name: firefly-drift-c; animation-duration: 13s; }
+.player-fireflies svg > g > g:nth-child(1)   { animation-delay: -1s; }
+.player-fireflies svg > g > g:nth-child(2)   { animation-delay: -4s; }
+.player-fireflies svg > g > g:nth-child(3)   { animation-delay: -7s; }
+.player-fireflies svg > g > g:nth-child(4)   { animation-delay: -2.5s; }
+.player-fireflies svg > g > g:nth-child(5)   { animation-delay: -9s; }
+.player-fireflies svg > g > g:nth-child(6)   { animation-delay: -5.5s; }
+.player-fireflies svg > g > g:nth-child(7)   { animation-delay: -3s; }
+.player-fireflies svg > g > g:nth-child(8)   { animation-delay: -8s; }
+.player-fireflies svg > g > g:nth-child(9)   { animation-delay: -6s; }
+.player-fireflies svg > g > g:nth-child(10)  { animation-delay: -10s; }
+
+.player-fireflies svg > g > g:nth-child(2n) > circle  { animation-duration: 2.3s; animation-delay: -1.1s; }
+.player-fireflies svg > g > g:nth-child(3n) > circle  { animation-duration: 3.7s; animation-delay: -2.4s; }
+.player-fireflies svg > g > g:nth-child(5n) > circle  { animation-duration: 4.4s; animation-delay: -0.6s; }
+
+@keyframes firefly-drift-a {
+  0%, 100% { transform: translate(0, 0); }
+  25%      { transform: translate(6px, -8px); }
+  50%      { transform: translate(12px, -3px); }
+  75%      { transform: translate(5px, 5px); }
+}
+
+@keyframes firefly-drift-b {
+  0%, 100% { transform: translate(0, 0); }
+  30%      { transform: translate(-9px, -6px); }
+  60%      { transform: translate(-4px, -14px); }
+  80%      { transform: translate(3px, -5px); }
+}
+
+@keyframes firefly-drift-c {
+  0%, 100% { transform: translate(0, 0); }
+  20%      { transform: translate(4px, 7px); }
+  50%      { transform: translate(-7px, 10px); }
+  75%      { transform: translate(-10px, 2px); }
+}
+
+@keyframes firefly-glow {
+  0%, 100% { opacity: 1; }
+  45%      { opacity: 0.25; }
+  60%      { opacity: 0.9; }
+}
+
+/* Respect the "reduce motion" accessibility setting */
+@media (prefers-reduced-motion: reduce) {
+  .player-fireflies svg > g > g,
+  .player-fireflies svg > g > g > circle {
+    animation: none;
+  }
+}
+
+/* ---------- Save / open mix pill (inside the player widget) ---------- */
+
+.player-card > .back-pill {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+}
+
+.player-card > .mix-pill {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+}
+
+.back-pill button,
+.mix-pill button,
+.mix-pill a,
+.mix-pill span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  box-shadow: none;
+  font-family: "Figtree", system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.back-pill button:hover,
+.mix-pill button:hover,
+.mix-pill a:hover {
+  background: rgba(0, 0, 0, 0.55);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+.mix-pill button:disabled {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.back-pill button:focus-visible,
+.mix-pill button:focus-visible,
+.mix-pill a:focus-visible {
+  outline: 2px solid var(--player-played);
+  outline-offset: 2px;
+}

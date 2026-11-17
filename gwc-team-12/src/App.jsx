@@ -12,6 +12,7 @@ import OnboardingQuiz from './components/OnboardingQuiz'; //(ginny) this is for 
 function App() {
     const [token, setToken] = useState(''); 
     const [theme, setTheme] = useState(null); //(ginny) adds theme state for lightforest or darkforest
+    const [quizAnswers, setQuizAnswers] = useState([]); // quiz picks, used to build the forest mix
 
     useEffect(() => {
 
@@ -29,19 +30,17 @@ function App() {
 
   return (
     <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
       <div>
     {!token ? (
       <Login />
     ) : !theme ? 
     (
       // (ginny) once logged in, show quiz if no theme chosen yet
-      <OnboardingQuiz onComplete={(selectedTheme) => setTheme(selectedTheme)} />
+      <OnboardingQuiz onComplete={(selectedTheme, answers = []) => { setQuizAnswers(answers); setTheme(selectedTheme); }} />
     ) : 
     (
     // (ginny) pass chosen theme to player
-      <SpotifyPlayer token={token} theme={theme} />
+      <SpotifyPlayer token={token} theme={theme} answers={quizAnswers} onBack={() => setTheme(null)} />
     )}
     </div>
 

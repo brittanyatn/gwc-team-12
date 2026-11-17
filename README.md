@@ -3,25 +3,49 @@ mp3 Spotify player project for Girls Who Code Fall Project, Team 12
 
 Customizable mp3 player based on a personality quiz
 
-# Installation Requirements
+# Setup on a new laptop
 
-RUST download, nodejs
+You need: [Node.js](https://nodejs.org) (version 20 or newer), **Spotify Premium**, and a desktop browser (Chrome works best). Rust is only needed for the Tauri desktop app, not for the browser demo.
 
-Install Rust with:
+### 1. Get the code
 
-    curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
-   
-    *close and reopen terminal to check if its downloaded*
+    git clone <this repo's URL>
+    cd gwc-team-12/gwc-team-12
+    npm install
 
-NEXT:
+All commands below run inside the nested `gwc-team-12/gwc-team-12` folder.
 
-    make sure your directory is in the nested "gwc-team-12" folder, then run **npm install**
+### 2. Spotify keys
 
-     Create a `.env` file: `VITE_SPOTIFY_CLIENT_ID=your_client_id`
-    `npm run dev` for the browser at http://127.0.0.1:5173
-    `npm run tauri dev` for the desktop app
+The app needs a Spotify app's **Client ID** and **Client secret**. Use one of these:
 
-    requires spotify premium
+- **Use the team's Spotify app:** ask whoever owns it for the two keys, and ask them to add your Spotify email under **User Management** on the app's dashboard page. Spotify only lets accounts on that list log in (up to 5 while the app is in Development Mode).
+- **Make your own:** go to https://developer.spotify.com/dashboard → **Create app**
+  - Redirect URI: `http://127.0.0.1:3000/auth/callback` (exactly this)
+  - APIs: tick **Web API** and **Web Playback SDK**
+  - Save, then open **Settings** to copy the Client ID and Client secret
+
+### 3. Create the `.env` file
+
+Copy the example file and paste your keys in (no quotes, no spaces):
+
+    cp .env.example .env
+
+`.env` is gitignored, so never commit it or share keys in the repo.
+
+### 4. Run it (two terminals)
+
+    npm run server     # terminal 1: Spotify login, http://127.0.0.1:3000
+    npm run dev        # terminal 2: the app
+
+Open **http://127.0.0.1:1420/** (use `127.0.0.1`, not `localhost`, or Spotify login won't return to the app). Click **Connect to Spotify**, take the quiz, and press play.
+
+### Troubleshooting
+
+- **"INVALID_CLIENT" or the login page errors:** the keys in `.env` are wrong, or the redirect URI on the Spotify dashboard doesn't match exactly. Restart `npm run server` after changing `.env`.
+- **Spotify says you're not allowed / 403:** your Spotify email isn't in the app's **User Management** list.
+- **Play does nothing, or the console says "Failed to initialize player":** refresh the page and press play again. Make sure you're on Premium and in desktop Chrome (not Safari or the VS Code preview browser).
+- **The mix is your own songs instead of new ones, or the console says "search is paused (rate limit)":** Spotify limits how many searches an app can make. The app falls back to your own songs and tries search again later. If Spotify refuses the mix entirely, play resumes your last Spotify music instead.
 
 # APIs used
-    Web Playback SDK
+    Spotify Web Playback SDK, Spotify Web API (login via the Express server in `server/index.cjs`)

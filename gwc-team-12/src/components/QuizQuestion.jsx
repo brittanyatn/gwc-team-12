@@ -1,32 +1,58 @@
 //(ginny) added this on 11/6, this is for the quiz!
-import React from 'react';
+// Restyled to match the Figma "Quiz Q1–Q5" frames.
+import React, { useState } from 'react';
+import ForestCard from './ForestCard';
 
-export default function QuizQuestion({ data, currentIndex, total, onSelect, onSkip }) {
+export default function QuizQuestion({ data, currentIndex, total, onSelect, onSkip, onBack, theme }) {
+  const [selectedIdx, setSelectedIdx] = useState(null);
+
   if (!data) return null; // Safe guard against undefined data
 
+  const choose = (option, idx) => {
+    if (selectedIdx !== null) return; // ignore double clicks while advancing
+    setSelectedIdx(idx);
+    // brief pause so the "selected" state from the design is visible
+    setTimeout(() => {
+      setSelectedIdx(null);
+      onSelect(option);
+    }, 250);
+  };
+
   return (
-    <div className="quiz-card">
-      <div className="quiz-header">
-        <span className="step-counter">Question {currentIndex + 1} of {total}</span>
-        <button type="button" className="skip-link" onClick={() => onSkip('lightForest')}>
-          Skip
-        </button>
-      </div>      
+    <ForestCard theme={theme} className="quiz-card-forest">
+      <div className="quiz-header-forest">
+        <div className="quiz-header-left">
+          <button type="button" className="forest-link" aria-label="Back" onClick={onBack}>
+            ‹ Back
+          </button>
+          <span className="quiz-counter">{currentIndex + 1} of {total}</span>
+        </div>
+        <div className="quiz-header-right">
+          <div className="quiz-steps" aria-hidden="true">
+            {Array.from({ length: total }, (_, i) => (
+              <span key={i} className={`quiz-step ${i <= currentIndex ? 'is-done' : ''}`} />
+            ))}
+          </div>
+          <button type="button" className="forest-link" onClick={() => onSkip('lightForest')}>
+            Skip
+          </button>
+        </div>
+      </div>
 
-      <h3 className="question-title">{data.question}</h3>
+      <h3 className="quiz-question-forest">{data.question}</h3>
 
-      <div className="option-stack">
+      <div className="quiz-answers">
         {data.options.map((option, idx) => (
           <button
             key={idx}
             type="button"
-            className="option-card"
-            onClick={() => onSelect(option)}
+            className={`quiz-answer ${selectedIdx === idx ? 'is-selected' : ''}`}
+            onClick={() => choose(option, idx)}
           >
             {option.text}
           </button>
         ))}
       </div>
-    </div>
+    </ForestCard>
   );
 }
