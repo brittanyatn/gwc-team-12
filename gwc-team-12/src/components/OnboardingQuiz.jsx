@@ -3,51 +3,53 @@ import React, { useState } from 'react';
 import QuizQuestion from './QuizQuestion';
 import ForestCard, { useSystemForestTheme } from './ForestCard';
 
-// `genres` = Spotify genre keywords each answer adds to the forest mix (see src/lib/forestMix.js)
+// `genres` = Spotify genre names each answer adds to the forest mix (see src/lib/forestMix.js).
+// Each option's genres echo its own imagery; overlap between questions is kept low so
+// no genre piles up just from picking "middle" answers. Q4 (`weight: 2`) counts double.
 const QUIZ_DATA = [
   {
     id: 1,
     question: "A hidden path opens in the woods. What draws you in?",
     options: [
-      { text: "Sunlit rustling leaves", light: 2, dark: 0, genres: ["indie folk", "folk", "acoustic"] },
-      { text: "A faint, mysterious glow", light: 0, dark: 2, genres: ["dream pop", "synth", "darkwave"] },
-      { text: "A distant trickling stream", light: 1, dark: 1, genres: ["lo-fi", "chill", "ambient"] },
+      { text: "Sunlit rustling leaves", light: 2, dark: 0, genres: ["indie folk", "folk pop"] },
+      { text: "A faint, mysterious glow", light: 0, dark: 2, genres: ["dream pop", "shoegaze"] },
+      { text: "A distant trickling stream", light: 1, dark: 1, genres: ["ambient", "lo-fi"] },
     ]
   },
   {
     id: 2,
     question: "A forest guide appears. Who steps out?",
     options: [
-      { text: "A wise barn owl", light: 2, dark: 0, genres: ["singer-songwriter", "folk"] },
-      { text: "A shadowy silver fox", light: 0, dark: 2, genres: ["alternative", "trip hop", "indie rock"] },
-      { text: "A quiet misty deer", light: 1, dark: 1, genres: ["dream pop", "bedroom pop"] },
+      { text: "A wise barn owl", light: 2, dark: 0, genres: ["singer-songwriter", "chamber folk"] },
+      { text: "A shadowy silver fox", light: 0, dark: 2, genres: ["trip hop", "alternative r&b"] },
+      { text: "A quiet misty deer", light: 1, dark: 1, genres: ["bedroom pop", "chillwave"] },
     ]
   },
   {
     id: 3,
     question: "Which trail do you follow?",
     options: [
-      { text: "The sunlit wildflower path", light: 2, dark: 0, genres: ["indie pop", "pop"] },
-      { text: "The glowing mushroom trail", light: 0, dark: 2, genres: ["electronic", "psychedelic"] },
-      { text: "Mossy stone steps", light: 1, dark: 1, genres: ["lo-fi", "jazz"] },
+      { text: "The sunlit wildflower path", light: 2, dark: 0, genres: ["indie pop", "sunshine pop"] },
+      { text: "The glowing mushroom trail", light: 0, dark: 2, genres: ["psychedelic rock", "neo-psychedelic"] },
+      { text: "Mossy stone steps", light: 1, dark: 1, genres: ["jazz", "neo soul"] },
     ]
   },
   {
     id: 4,
     question: "What sound fits your mood right now?",
     options: [
-      { text: "Warm acoustic & breezy strings", light: 2, dark: 0, weight: 2, genres: ["acoustic", "folk", "singer-songwriter"] },
-      { text: "Deep bass & driving beats", light: 0, dark: 2, weight: 2, genres: ["electronic", "house", "hip hop", "techno"] },
-      { text: "Dreamy lo-fi & ambient pads", light: 1, dark: 1, weight: 2, genres: ["lo-fi", "ambient", "chill"] },
+      { text: "Warm acoustic & breezy strings", light: 2, dark: 0, weight: 2, genres: ["acoustic", "folk"] },
+      { text: "Deep bass & driving beats", light: 0, dark: 2, weight: 2, genres: ["electronic", "house", "hip hop"] },
+      { text: "Dreamy lo-fi & ambient pads", light: 1, dark: 1, weight: 2, genres: ["lo-fi", "ambient"] },
     ]
   },
   {
     id: 5,
     question: "At the forest's heart, which relic do you take?",
     options: [
-      { text: "A warm sunstone crystal", light: 2, dark: 0, genres: ["soul", "indie pop"] },
-      { text: "A silver-laced obsidian charm", light: 0, dark: 2, genres: ["post-punk", "darkwave", "alternative"] },
-      { text: "A firefly glass lantern", light: 1, dark: 1, genres: ["jazz", "bossa nova", "chill"] },
+      { text: "A warm sunstone crystal", light: 2, dark: 0, genres: ["soul", "funk"] },
+      { text: "A silver-laced obsidian charm", light: 0, dark: 2, genres: ["darkwave", "post-punk"] },
+      { text: "A firefly glass lantern", light: 1, dark: 1, genres: ["bossa nova", "chamber pop"] },
     ]
   },
   {

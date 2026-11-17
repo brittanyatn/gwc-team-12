@@ -26,14 +26,32 @@ const MIX_SIZE = 30;
 const DEFAULT_DISCOVER = 0.35; // used if the quiz was skipped
 const DEEP_CUT_ARTISTS = 4; // how many top-matching artists to dig into
 const DEEP_CUTS_PER_ARTIST = 3;
-const ARTISTS_TO_CHECK = 20; // listener's main artists to test against the genres
-const KEYWORDS_TO_CHECK = 5; // strongest genres from the answers
+const ARTISTS_TO_CHECK = 10; // listener's main artists to test against the genres
+const KEYWORDS_TO_CHECK = 6; // one main genre per answer (two for the sound question)
+const GENRE_SEARCHES = 2;    // genres used for new-song search (2 pages each)
+
+// Spotify rate-limits search hard in development mode (a burst of ~100 searches
+// earned a 22-hour block in testing). So: remember artist/genre answers in the
+// browser for a week, and stop searching entirely once Spotify says "too many".
+const CACHE_KEY = "forestGenreCache";
+const BLOCK_KEY = "forestSearchBlockedUntil";
+const CACHE_DAYS = 7;
+const store = {
+  get(key, fallback) {
+    try { return JSON.parse(globalThis.localStorage?.getItem(key)) ?? fallback; } catch { return fallback; }
+  },
+  set(key, value) {
+    try { globalThis.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* private mode etc. */ }
+  },
+};
+const searchBlocked = () => Date.now() < store.get(BLOCK_KEY, 0);
 const SEARCH_LIMIT = 10;     // Spotify's max page size for search in development mode
 
-// Genre keywords for each theme, used even if the quiz was skipped.
+// Genre keywords for each theme — only used when the quiz was skipped.
+// With answers, the genres come from the answers alone; the theme just sets the look.
 export const THEME_GENRES = {
-  lightForest: ["indie", "folk", "acoustic", "pop"],
-  darkForest: ["electronic", "alternative", "dark", "r&b"],
+  lightForest: ["folk", "indie pop"],
+  darkForest: ["electronic", "alternative"],
 };
 
 export const MIX_NAMES = {
@@ -42,6 +60,11 @@ export const MIX_NAMES = {
 };
 
 async function spotify(token, path, options = {}, retried = false) {
+  if (path.startsWith("/search") && searchBlocked()) {
+    const err = new Error("Spotify search is paused (rate limit)");
+    err.status = 429;
+    throw err;
+  }
   const res = await fetch(path.startsWith("http") ? path : API + path, {
     ...options,
     headers: {
@@ -50,11 +73,15 @@ async function spotify(token, path, options = {}, retried = false) {
       ...options.headers,
     },
   });
-  if (res.status === 429 && !retried) {
-    // rate limited: wait as long as Spotify asks (capped), then try once more
-    const wait = Math.min(Number(res.headers.get("Retry-After")) || 1, 5);
-    await new Promise((r) => setTimeout(r, wait * 1000));
-    return spotify(token, path, options, true);
+  if (res.status === 429) {
+    const wait = Number(res.headers.get("Retry-After")) || 0;
+    if (path.startsWith("/search")) {
+      // don't hammer a blocked endpoint: pause all searches (at least 10 min, or as long as Spotify says)
+      store.set(BLOCK_KEY, Date.now() + Math.max(wait, 600) * 1000);
+    } else if (!retried && wait <= 5) {
+      await new Promise((r) => setTimeout(r, Math.max(wait, 1) * 1000));
+      return spotify(token, path, options, true);
+    }
   }
   if (!res.ok) {
     const err = new Error(`Spotify ${options.method || "GET"} ${path} → ${res.status}`);
@@ -80,9 +107,29 @@ async function attempt(log, label, fn) {
 export function genreWeights(theme, answers = []) {
   const weights = new Map();
   const add = (g, w) => weights.set(g, (weights.get(g) || 0) + w);
-  (THEME_GENRES[theme] || []).forEach((g) => add(g, 1));
-  answers.forEach((a) => (a?.genres || []).forEach((g) => add(g, 2 * (a.weight || 1))));
+  const tagged = answers.filter((a) => a?.genres?.length);
+  if (tagged.length) {
+    tagged.forEach((a) => a.genres.forEach((g) => add(g, 2 * (a.weight || 1))));
+  } else {
+    (THEME_GENRES[theme] || []).forEach((g) => add(g, 1)); // quiz skipped
+  }
   return weights;
+}
+
+// The genres to test artists against: every answer's main genre (both for
+// double-weight answers), so each response shapes the mix — not just the
+// highest-scoring genres overall. Strongest first.
+export function genresToCheck(theme, answers = [], max = KEYWORDS_TO_CHECK) {
+  const weights = genreWeights(theme, answers);
+  const picks = [];
+  answers.filter((a) => a?.genres?.length).forEach((a) => {
+    a.genres.slice(0, (a.weight || 1) > 1 ? 2 : 1).forEach((g) => !picks.includes(g) && picks.push(g));
+  });
+  if (!picks.length) picks.push(...weights.keys());
+  return picks
+    .map((g) => [g, weights.get(g) || 1])
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, max);
 }
 
 // 0 = only songs they know, 1 = all new finds
@@ -153,7 +200,7 @@ export async function buildForestMix(token, theme, answers = []) {
   log.push(`familiar pool: ${known.size} (liked ${likedCount}, recent ${recent?.items.length ?? 0})`);
 
   // ---------- 3. which of the listener's artists fit the answers? ----------
-  const keywords = [...weights.entries()].sort((a, b) => b[1] - a[1]).slice(0, KEYWORDS_TO_CHECK);
+  const keywords = genresToCheck(theme, answers);
 
   // their main artists, ranked by how much they play them
   const artistRank = new Map();
@@ -167,23 +214,34 @@ export async function buildForestMix(token, theme, answers = []) {
   const mainArtists = [...artistRank.values()].sort((a, b) => b.fam - a.fam).slice(0, ARTISTS_TO_CHECK);
 
   const artistFit = new Map(); // artist id → sum of matching genre weights
-  const artistGenresFound = new Map(); // artist id → matching genres (for the log)
+  const cache = store.get(CACHE_KEY, {}); // "artistId|genre" → { m: matched?, t: when checked }
+  const fresh = (e) => e && Date.now() - e.t < CACHE_DAYS * 864e5;
   let failedChecks = 0;
+  let cachedChecks = 0;
   const checks = mainArtists.flatMap((artist) => keywords.map(([genre, w]) => ({ artist, genre, w })));
-  await inPool(checks, 4, async ({ artist, genre, w }) => {
-    const q = encodeURIComponent(`artist:"${artist.name.replace(/"/g, "")}" genre:"${genre}"`);
-    try {
-      const res = await spotify(token, `/search?type=artist&limit=3&q=${q}`);
-      if (res.artists.items.some((x) => x.id === artist.id)) {
-        artistFit.set(artist.id, (artistFit.get(artist.id) || 0) + w);
-        artistGenresFound.set(artist.id, [...(artistGenresFound.get(artist.id) || []), genre]);
+  await inPool(checks, 3, async ({ artist, genre, w }) => {
+    const key = `${artist.id}|${genre}`;
+    let matched;
+    if (fresh(cache[key])) {
+      matched = cache[key].m;
+      cachedChecks++;
+    } else {
+      const q = encodeURIComponent(`artist:"${artist.name.replace(/"/g, "")}" genre:"${genre}"`);
+      try {
+        const res = await spotify(token, `/search?type=artist&limit=3&q=${q}`);
+        matched = res.artists.items.some((x) => x.id === artist.id);
+        cache[key] = { m: matched, t: Date.now() };
+      } catch {
+        failedChecks++;
+        return;
       }
-    } catch {
-      failedChecks++;
     }
+    if (matched) artistFit.set(artist.id, (artistFit.get(artist.id) || 0) + w);
   });
+  store.set(CACHE_KEY, cache);
   log.push(`artists matching your answers: ${artistFit.size} of ${mainArtists.length}` +
-    (failedChecks ? ` (${failedChecks} checks failed)` : ""));
+    ` (${cachedChecks} remembered` + (failedChecks ? `, ${failedChecks} skipped` : "") + ")");
+  if (searchBlocked()) log.push("Spotify search is paused (rate limit) — leaning on your own songs");
 
   const fitOf = (track) => Math.max(0, ...track.artists.map((a) => artistFit.get(a.id) || 0));
   const familiar = [...known.values()]
@@ -221,7 +279,7 @@ export async function buildForestMix(token, theme, answers = []) {
   const yearFilter = years.length >= 5 ? ` year:${pct(0.15) - 2}-${pct(0.9) + 1}` : "";
 
   const searched = [];
-  for (const [genre] of keywords.slice(0, 3)) {
+  for (const [genre] of keywords.slice(0, GENRE_SEARCHES)) {
     for (const offset of [0, SEARCH_LIMIT]) {
       const q = encodeURIComponent(`genre:"${genre}"${yearFilter}`);
       const res = await attempt(log, `search "${genre}"`, () =>
