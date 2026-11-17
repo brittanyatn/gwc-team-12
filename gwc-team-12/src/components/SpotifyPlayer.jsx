@@ -62,6 +62,9 @@ function mixFor(token, theme, answers) {
   return mixCache.promise;
 }
 
+// The Spotify SDK player lives for the whole page visit (see the setup effect).
+const sharedPlayer = { player: null, deviceId: null };
+
 // The backend renews the Spotify login every hour; always ask it for the current one.
 async function currentToken(fallback) {
   try {
@@ -77,7 +80,6 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
   const playerRef = useRef(null);
   const [track, setTrack] = useState(null);
   const [paused, setPaused] = useState(true); // note: true means music IS playing (set from !state.paused)
-  const deviceIdRef = useRef(null);
   const startedRef = useRef(false);
   const [started, setStarted] = useState(false);
   const [position, setPosition] = useState(0); // ms, for the progress bar
@@ -129,11 +131,19 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       player.activateElement();
 
       if (!startedRef.current) {
+        // the player registers with Spotify a moment after it's created
+        for (let i = 0; i < 20 && !sharedPlayer.deviceId; i++) {
+          await new Promise((r) => setTimeout(r, 250));
+        }
+        if (!sharedPlayer.deviceId) {
+          console.warn("Spotify player isn't ready yet, try again in a moment");
+          return;
+        }
         const state = await player.getCurrentState();
         const testTrack = getTestTrackUri();
         const liveToken = await currentToken(token);
         const res = await fetch(
-          `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
+          `https://api.spotify.com/v1/me/player/play?device_id=${sharedPlayer.deviceId}`,
           {
             method: "PUT",
             headers: {
@@ -157,7 +167,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
         if (testTrack || mix?.uris?.length) {
           console.warn("[forest mix] Spotify rejected the mix, resuming last playback instead");
           const retry = await fetch(
-            `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
+            `https://api.spotify.com/v1/me/player/play?device_id=${sharedPlayer.deviceId}`,
             {
               method: "PUT",
               headers: { Authorization: `Bearer ${liveToken}`, "Content-Type": "application/json" },
@@ -179,29 +189,35 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
     console.warn("No token yet, skipping Spotify setup");
     return;
   }
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      const player = new window.Spotify.Player({
-        name: "Web Playback SDK Quick Start Player",
-        getOAuthToken: (cb) => {
-          // preview mode has no real login, so don't ask the backend
-          if (token === "preview-token") return cb(token);
-          currentToken(token).then(cb);
 
-        },
-        volume: 0.5,
-      });
+    // One Spotify player for the whole visit. Going Back to the quiz unmounts this
+    // component; destroying and re-creating the SDK player then left the new one
+    // unregistered when play was pressed. So it's created once and reused.
+    const setup = () => {
+      let player = sharedPlayer.player;
 
-      // Ready
-      player.addListener("ready", ({ device_id }) => {
+      if (!player) {
+        player = new window.Spotify.Player({
+          name: "Web Playback SDK Quick Start Player",
+          getOAuthToken: (cb) => {
+            // preview mode has no real login, so don't ask the backend
+            if (token === "preview-token") return cb(token);
+            currentToken(token).then(cb);
+          },
+          volume: 0.5,
+        });
+        sharedPlayer.player = player;
 
-        console.log("Ready with Device ID", device_id);
-        deviceIdRef.current = device_id;
+        // Ready
+        player.addListener("ready", ({ device_id }) => {
+          console.log("Ready with Device ID", device_id);
+          sharedPlayer.deviceId = device_id;
         });
 
-      // Not Ready
-      player.addListener("not_ready", ({ device_id }) => {
-        console.log("Device ID has gone offline", device_id);
-      });
+        // Not Ready
+        player.addListener("not_ready", ({ device_id }) => {
+          console.log("Device ID has gone offline", device_id);
+        });
 
         player.addListener('initialization_error', ({ message }) => {
             console.error(message);
@@ -215,9 +231,13 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
             console.error(message);
         });
 
-      playerRef.current = player;
-      player.connect();
+        player.connect();
+      }
 
+      playerRef.current = player;
+
+      // (re)attach this screen's state updates
+      player.removeListener("player_state_changed");
       player.addListener("player_state_changed", (state) => {
         if (!state)
           return;
@@ -230,13 +250,12 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
           setStarted(true);
 
         });
-
-
     };
 
+    window.onSpotifyWebPlaybackSDKReady = setup;
     // Coming back to the player (e.g. after "‹ Quiz"): the SDK is already loaded
-    // and won't announce itself again, so set the player up straight away.
-    if (window.Spotify?.Player) window.onSpotifyWebPlaybackSDKReady();
+    // and won't announce itself again, so set up straight away.
+    if (window.Spotify?.Player) setup();
 
         if (!document.querySelector('script[src="https://sdk.scdn.co/spotify-player.js"]')) {
       const script = document.createElement("script");
@@ -246,7 +265,8 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
     }
 
     return () => {
-      playerRef.current?.disconnect();
+      // keep the player alive for next time; just stop updating this screen
+      playerRef.current?.removeListener("player_state_changed");
     };
   }, [token]);
 
