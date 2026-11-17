@@ -53,6 +53,17 @@ function getTestTrackUri() {
   return id ? `spotify:track:${id}` : null;
 }
 
+// The backend renews the Spotify login every hour; always ask it for the current one.
+async function currentToken(fallback) {
+  try {
+    const res = await fetch("/auth/token");
+    const json = await res.json();
+    return json.access_token || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
   const playerRef = useRef(null);
   const [track, setTrack] = useState(null);
@@ -91,7 +102,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
     if (!mix || saveStatus === "saving") return;
     setSaveStatus("saving");
     try {
-      const playlist = await saveMixAsPlaylist(token, mix);
+      const playlist = await saveMixAsPlaylist(await currentToken(token), mix);
       setSavedUrl(playlist.external_urls?.spotify || null);
       setSaveStatus("saved");
     } catch (e) {
@@ -111,12 +122,13 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       if (!startedRef.current) {
         const state = await player.getCurrentState();
         const testTrack = getTestTrackUri();
+        const liveToken = await currentToken(token);
         const res = await fetch(
           `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
           {
             method: "PUT",
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${liveToken}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify(
@@ -139,7 +151,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
             `https://api.spotify.com/v1/me/player/play?device_id=${deviceIdRef.current}`,
             {
               method: "PUT",
-              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+              headers: { Authorization: `Bearer ${liveToken}`, "Content-Type": "application/json" },
               body: JSON.stringify(state?.context?.uri ? { context_uri: state.context.uri } : {}),
             }
           );
@@ -162,7 +174,9 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       const player = new window.Spotify.Player({
         name: "Web Playback SDK Quick Start Player",
         getOAuthToken: (cb) => {
-          cb(token);
+          // preview mode has no real login, so don't ask the backend
+          if (token === "preview-token") return cb(token);
+          currentToken(token).then(cb);
 
         },
         volume: 0.5,
