@@ -5,7 +5,8 @@
 // Playing one of these takes a single request, so it works even when search is blocked.
 // The player switches to the matching backup playlist when:
 //   - the mix fails to build, or comes back empty,
-//   - too few of its songs match the answers (e.g. search is rate-limited), or
+//   - Spotify answers "too many requests" (429) while the mix is being built,
+//   - too few of its songs match the answers, or
 //   - Spotify refuses to play the mix.
 //
 // TO ADD A PLAYLIST: in Spotify, ⋯ on the playlist → Share → Copy link to playlist,

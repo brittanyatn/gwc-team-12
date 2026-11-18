@@ -123,6 +123,8 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       .then((m) => {
         if (cancelled) return;
         setMix(m);
+        // Spotify said "too many requests" (429): play the backup playlist for these answers
+        if (m.rateLimited && switchToBackup("Spotify said too many requests (429)")) return;
         if (mixTooWeak(m) &&
             switchToBackup(`only ${m.themedCount ?? 0} of ${m.uris.length} songs fit the answers` +
               (m.searchPaused ? " (search is rate-limited)" : ""))) return;

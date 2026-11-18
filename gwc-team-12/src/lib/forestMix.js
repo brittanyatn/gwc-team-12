@@ -73,8 +73,14 @@ export const MIX_NAMES = {
   darkForest: "Moonlit Glade",
 };
 
+// Counts Spotify "too many requests" (429) answers, and searches skipped because of an
+// earlier one, during the current mix build. The player switches to a backup playlist
+// when this is above 0 (see rateLimited in buildForestMix's result).
+let rateLimitHits = 0;
+
 async function spotify(token, path, options = {}, retried = false) {
   if (path.startsWith("/search") && searchBlocked(token)) {
+    rateLimitHits++;
     const err = new Error("Spotify search is paused (rate limit)");
     err.status = 429;
     throw err;
@@ -88,6 +94,7 @@ async function spotify(token, path, options = {}, retried = false) {
     },
   });
   if (res.status === 429) {
+    rateLimitHits++;
     const wait = Number(res.headers.get("Retry-After")) || 0;
     if (path.startsWith("/search")) {
       // don't hammer a blocked endpoint: pause all searches (at least 10 min, or as long as Spotify says)
@@ -179,6 +186,7 @@ function shuffle(list) {
 // ---------- main ----------
 
 export async function buildForestMix(token, theme, answers = []) {
+  rateLimitHits = 0;
   const weights = genreWeights(theme, answers);
   const discover = discoveryLevel(answers);
   const log = []; // human-readable notes, printed to the console for debugging
@@ -409,6 +417,7 @@ export async function buildForestMix(token, theme, answers = []) {
     discoverCount: disc.length,
     themedCount: fam.length + disc.length - fillerCount, // songs that fit the answers
     searchPaused: searchBlocked(token),
+    rateLimited: rateLimitHits > 0, // Spotify said "too many requests" during this build
     log,
   };
 }
