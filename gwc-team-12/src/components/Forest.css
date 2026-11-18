@@ -428,6 +428,9 @@
 .player-portal {
   width: 159.96px;
   height: 194.36px;
+  /* extra room under the portal: the portal sits a little higher and the song info,
+     progress bar and buttons a little lower, so a drawn frame can reach past the window */
+  margin-bottom: 12px;
 }
 
 .player-cover {
