@@ -28,7 +28,8 @@ export default defineConfig(() => ({
       ignored: ["**/src-tauri/**"],
     },
     proxy: {
-      "/auth": "http://127.0.0.1:3000",   
+      "/auth": "http://127.0.0.1:3000",
+      "/lastfm": "http://127.0.0.1:3000",
     },
   },
 }));

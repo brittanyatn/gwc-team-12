@@ -8,7 +8,7 @@ Customizable mp3 player based on a personality quiz
 1. **Sign in** with Spotify.
 2. **Take the forest quiz** (or skip to the Light or Dark Forest). The answers pick a light or dark theme and the kind of music you're in the mood for.
 3. **"DJ spin that shit"** plays a random sound effect and opens the player.
-4. **The player** builds a 30-song "forest mix" from your own Spotify listening, shaped by your answers, while a soft ambient loop plays. Press play to start it, and **+ Save mix** to save it as a private playlist in your Spotify.
+4. **The player** builds a 30-song "forest mix" mostly from what you've been listening to lately, keeping the artists whose genres fit your mood answer, while a soft ambient loop plays. Press play to start it, and **+ Save mix** to save it as a private playlist in your Spotify.
 5. If the mix can't be built or played, or Spotify says "too many requests", a **backup playlist** that matches your mood answer plays instead.
 
 **Demo mode** (the switch on the welcome screen, on by default) skips the forest mix and always plays the hand-picked playlist for your mood answer. Turn it off to build a forest mix from your own Spotify. The setting is remembered in that browser.
@@ -41,6 +41,8 @@ Copy the example file and paste your keys in (no quotes, no spaces):
 
     cp .env.example .env
 
+Also add a free **Last.fm API key** as `LASTFM_API_KEY` (create one at https://www.last.fm/api/account/create; only the "API key" is needed). The forest mix uses it to look up each artist's genres. Without it, Demo mode still works, and the forest mix falls back to the hand-picked playlists.
+
 `.env` is gitignored, so never commit it or share keys in the repo.
 
 ### 4. Run it (two terminals)
@@ -59,12 +61,12 @@ All paths are inside the nested `gwc-team-12/gwc-team-12` folder.
 | What | File | Notes |
 | --- | --- | --- |
 | Quiz questions, answers and their genres | `src/components/OnboardingQuiz.jsx` | Each answer adds light/dark points and genre tags. Question 4 (the mood question) also has a `sound` tag that picks the backup playlist. |
-| Forest mix | `src/lib/forestMix.js` | Uses your top songs, Liked Songs and recent plays. Spotify search checks which of your top 10 artists fit Question 4's genre and finds new songs in that genre: about 12 searches for a first mix. Results are remembered in the browser for `CACHE_DAYS` (2), so a repeat mix needs no searches. |
+| Forest mix | `src/lib/forestMix.js` | Uses your recent plays, top songs (4 weeks, 6 months) and recent Liked Songs, most recent first. Each of your main artists gets Last.fm genre tags (through `/lastfm/tags` on the login server) and a fit score against the mood: the quiz answers' genres, extra tags for the mood answer, and a hint from the hand-picked playlist for that mood. Mostly your own songs that fit, plus up to 40% from the mood playlist. About 6 Spotify requests and no Spotify search. |
 | Backup playlists and Demo mode | `src/lib/backupPlaylists.js` | One public playlist link per mood answer (Acoustic, Beats, Dreamy) and an optional one for skipping the quiz. `DEMO_MODE_DEFAULT` sets whether Demo mode starts on. Used when the mix fails, when fewer than `MIN_THEMED_SONGS` (15) songs fit the answers, or when Spotify refuses the mix. |
 | Sound effects | `src/lib/sfx.js`, `public/sounds/` | `DJ_SOUNDS` lists the clips picked at random for "DJ spin that shit". `ambient-forest.mp3` loops on the player page until the music starts. |
 | Player screen | `src/components/SpotifyPlayer.jsx` | Spotify Web Playback SDK player, play/skip controls, Save mix button, swirling portal (`PortalVortex.jsx`) and scrolling text for long titles (`Marquee.jsx`). |
 | Look and colours | `src/components/Forest.css`, `src/assets/forest/` | Light/dark theme colours are CSS variables. The rock frame (`portal-frame-*.png`), pebble buttons (`prev/play/pause/next-*.svg`) and firefly tracker (`firefly-*.png`) come in light and dark versions. |
-| Spotify login | `server/index.cjs` | Express server on port 3000: sign-in, callback and automatic login renewal. It holds one login at a time, so it's meant to run on each person's own laptop. |
+| Spotify login and Last.fm tags | `server/index.cjs` | Express server on port 3000: sign-in, callback, automatic login renewal, and `/lastfm/tags` (keeps the Last.fm key off the web page). It holds one login at a time, so it's meant to run on each person's own laptop. |
 
 ### Testing shortcuts
 
@@ -78,7 +80,7 @@ Add these to the page address:
 
 - **Premium** is required for playback, and it only plays in a desktop browser (Chrome works best).
 - While the Spotify app is in **Development Mode**, only accounts added under **User Management** on its dashboard can sign in (about 5).
-- **Search is rate-limited.** Too many searches block it for hours. The app then builds the mix from your own songs or plays a backup playlist; playback keeps working.
+- **Search is rate-limited.** Too many searches block it for hours, so the forest mix doesn't use Spotify search. If Spotify ever answers "too many requests", the app plays the backup playlist instead.
 - New apps can't use Spotify's recommendations, audio features, related artists or artist genres, which is why the mix uses search to match genres.
 
 ## Troubleshooting
