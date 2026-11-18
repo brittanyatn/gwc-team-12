@@ -336,9 +336,11 @@ export async function buildForestMix(token, theme, answers = []) {
     disc.push(...take(discovery, room(), cap));
   }
   // last resort: favourites that didn't match the answers
+  let fillerCount = 0;
   if (room() > 0) {
     const filler = take(unmatched.map((e) => e.track), room(), 3);
     fam.push(...filler);
+    fillerCount = filler.length;
     log.push(`filled ${filler.length} with favourites outside your answers`);
   }
 
@@ -378,6 +380,8 @@ export async function buildForestMix(token, theme, answers = []) {
     tracks: ordered,
     familiarCount: fam.length,
     discoverCount: disc.length,
+    themedCount: fam.length + disc.length - fillerCount, // songs that fit the answers
+    searchPaused: searchBlocked(token),
     log,
   };
 }

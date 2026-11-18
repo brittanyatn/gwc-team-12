@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import "./Forest.css";
 import { buildForestMix, saveMixAsPlaylist } from "../lib/forestMix";
+import { backupForced, mixTooWeak, pickBackupPlaylist } from "../lib/backupPlaylists";
 import PortalVortex from "./PortalVortex";
 
 // Player art from the Figma midfi "Player · iPhone Large" frames
@@ -87,7 +88,9 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
 
   // Forest mix: the listener's top songs filtered by their quiz answers
   const [mix, setMix] = useState(null);
-  const [mixStatus, setMixStatus] = useState("idle"); // idle | loading | ready | error
+  const [mixStatus, setMixStatus] = useState("idle"); // idle | loading | ready | backup | error
+  // Backup playlist (src/lib/backupPlaylists.js), used when the mix can't be built or played
+  const [backup, setBackup] = useState(null);
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
   const [savedUrl, setSavedUrl] = useState(null);
   const [playerProblem, setPlayerProblem] = useState(null); // shown under the song info
@@ -95,16 +98,37 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
   useEffect(() => {
     if (!token || token === "preview-token") return;
     let cancelled = false;
+    setBackup(null);
+    // true if a backup playlist exists for these answers and is now queued up
+    const switchToBackup = (why) => {
+      const pick = pickBackupPlaylist(theme, answers);
+      if (!pick) return false;
+      console.warn(`[backup playlist] ${why} → "${pick.name}"`);
+      setBackup(pick);
+      setMixStatus("backup");
+      return true;
+    };
+
+    // Demo switch / ?backup: skip the mix entirely (no Spotify search at all)
+    if (backupForced()) {
+      setMix(null);
+      if (!switchToBackup("backup forced")) setMixStatus("error");
+      return;
+    }
+
     setMixStatus("loading");
     mixFor(token, theme, answers)
       .then((m) => {
         if (cancelled) return;
         setMix(m);
+        if (mixTooWeak(m) &&
+            switchToBackup(`only ${m.themedCount ?? 0} of ${m.uris.length} songs fit the answers` +
+              (m.searchPaused ? " (search is rate-limited)" : ""))) return;
         setMixStatus(m.uris.length ? "ready" : "error");
       })
       .catch((e) => {
         console.error("[forest mix] failed:", e);
-        if (!cancelled) setMixStatus("error");
+        if (!cancelled && !switchToBackup("the mix couldn't be built")) setMixStatus("error");
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,41 +178,50 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
         const state = await player.getCurrentState();
         const testTrack = getTestTrackUri();
         const liveToken = await currentToken(token);
-        const res = await fetch(
-          `https://api.spotify.com/v1/me/player/play?device_id=${sharedPlayer.deviceId}`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${liveToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(
-              testTrack ? { uris: [testTrack] }
-              : mix?.uris?.length ? { uris: mix.uris } // play the forest mix
-              : state?.context?.uri ? { context_uri: state.context.uri } : {}
-            ),
-          }
-        );
-        console.log("Start play:", res.status);
-        if (res.ok || res.status === 204) {
-          startedRef.current = true;
-          return;
-        }
-
-        // Mix/test song rejected? Fall back to resuming whatever played last.
-        if (testTrack || mix?.uris?.length) {
-          console.warn("[forest mix] Spotify rejected the mix, resuming last playback instead");
-          const retry = await fetch(
+        const playOn = async (body, label) => {
+          const res = await fetch(
             `https://api.spotify.com/v1/me/player/play?device_id=${sharedPlayer.deviceId}`,
             {
               method: "PUT",
-              headers: { Authorization: `Bearer ${liveToken}`, "Content-Type": "application/json" },
-              body: JSON.stringify(state?.context?.uri ? { context_uri: state.context.uri } : {}),
+              headers: {
+                Authorization: `Bearer ${liveToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(body),
             }
           );
-          console.log("Start play (fallback):", retry.status);
-          if (retry.ok || retry.status === 204) startedRef.current = true;
+          console.log(`Start play (${label}):`, res.status);
+          const ok = res.ok || res.status === 204;
+          if (ok) startedRef.current = true;
+          return ok;
+        };
+        const resumeLast = state?.context?.uri ? { context_uri: state.context.uri } : {};
+
+        // 1. what's queued up: test song, backup playlist, forest mix, or last playback
+        if (testTrack) {
+          if (await playOn({ uris: [testTrack] }, "test song")) return;
+        } else if (backup) {
+          if (await playOn({ context_uri: backup.uri }, `backup "${backup.name}"`)) return;
+        } else if (mix?.uris?.length) {
+          if (await playOn({ uris: mix.uris }, "forest mix")) return;
+          // 2. mix rejected? try the backup playlist for these answers
+          const pick = pickBackupPlaylist(theme, answers);
+          if (pick) {
+            console.warn(`[backup playlist] Spotify rejected the mix → "${pick.name}"`);
+            if (await playOn({ context_uri: pick.uri }, `backup "${pick.name}"`)) {
+              setBackup(pick);
+              setMixStatus("backup");
+              return;
+            }
+          }
+        } else {
+          await playOn(resumeLast, "last playback");
+          return;
         }
+
+        // 3. last resort: resume whatever the listener played last on Spotify
+        console.warn("[forest mix] Spotify rejected it, resuming last playback instead");
+        await playOn(resumeLast, "fallback: last playback");
         return;
       }
 
@@ -317,6 +350,15 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
         </div>
       )}
 
+      {/* Backup playlist: open it in Spotify — top-right corner of the widget */}
+      {mixStatus === "backup" && backup && (
+        <div className="mix-pill">
+          <a href={backup.url} target="_blank" rel="noreferrer" title={`Open "${backup.name}" in Spotify`}>
+            <img src={spotifyWhite} width="14" height="14" alt="" /> Open in Spotify
+          </a>
+        </div>
+      )}
+
       {/* Save / open the forest mix — top-right corner of the widget */}
       {mixStatus === "ready" && (
         <div className="mix-pill">
@@ -359,6 +401,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
               {playerProblem ? playerProblem
                 : mixStatus === "loading" ? "Gathering your forest mix…"
                 : mixStatus === "ready" ? `${mix.name} · ${mix.uris.length} songs · press play`
+                : mixStatus === "backup" ? `${backup.name} · press play`
                 : "Press play to start"}
             </p>
           </>
