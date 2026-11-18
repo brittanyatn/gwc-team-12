@@ -3,7 +3,7 @@ import "./Forest.css";
 import { buildForestMix, saveBackupAsPlaylist, saveMixAsPlaylist } from "../lib/forestMix";
 import { backupForced, mixTooWeak, pickBackupPlaylist } from "../lib/backupPlaylists";
 import PortalVortex from "./PortalVortex";
-import { stopAmbient } from "../lib/sfx";
+import { ambientForPlayer, stopAmbient } from "../lib/sfx";
 
 // Player art from the Figma midfi "Player · iPhone Large" frames
 import bgLight from "../assets/forest/bg-light.png";
@@ -328,7 +328,11 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
     };
   }, [token]);
 
-  // The ambient waiting loop stops once music plays, or when leaving the player
+  // Ambient waiting loop: only while this player page is open, until the music starts
+  useEffect(() => {
+    ambientForPlayer();
+    return () => stopAmbient(400); // leaving the player page
+  }, []);
   useEffect(() => { if (started) stopAmbient(); }, [started]);
 
   // Move the progress bar forward while a song is playing

@@ -1,8 +1,8 @@
 // Sound effects for "DJ spin that shit" and the wait before the first song.
 //
 // The files live in public/sounds/. Each click on "DJ spin that shit" plays ONE of the
-// DJ_SOUNDS at random (a fresh pick every time), then the ambient loop
-// plays until the music starts. To add a sound: put the file in public/sounds/ and
+// DJ_SOUNDS at random (a fresh pick every time). The ambient loop plays only while
+// the player page is open, until the music starts (see SpotifyPlayer.jsx). To add a sound: put the file in public/sounds/ and
 // add its name to DJ_SOUNDS. A file that's missing is skipped.
 const DJ_SOUNDS = [
   "fah.mp3",        // the "FAHHH" meme sound
@@ -11,7 +11,7 @@ const DJ_SOUNDS = [
 const AMBIENT = "ambient-forest.mp3"; // soft forest loop (made for this app)
 
 export const VOLUME = { dj: 0.85, ambient: 0.35 };
-const AMBIENT_LATEST_MS = 2500; // ambient fades in when the DJ sound ends, or by this time
+const AMBIENT_LATEST_MS = 2500; // after a DJ sound, ambient waits for it to end (at most this long)
 
 const url = (file) => `/sounds/${file}`;
 
@@ -30,6 +30,7 @@ function fade(audio, to, ms, done) {
 
 let ambient = null;
 let ambientTimer = null;
+let ambientGen = 0; // bumped by stopAmbient so a pending start is cancelled
 
 export function startAmbient() {
   clearTimeout(ambientTimer);
@@ -43,12 +44,15 @@ export function startAmbient() {
 }
 
 export function stopAmbient(ms = 1200) {
+  ambientGen++;
   clearTimeout(ambientTimer);
   const a = ambient;
   ambient = null;
   if (!a) return;
   fade(a, 0, ms, () => a.pause());
 }
+
+let djAudio = null; // the DJ sound currently playing, if any
 
 // Play a random DJ sound; if that file is missing, try the others.
 function playRandomDj(onDone) {
@@ -58,16 +62,33 @@ function playRandomDj(onDone) {
     if (!file) return onDone();
     const audio = new Audio(url(file));
     audio.volume = VOLUME.dj;
-    audio.addEventListener("ended", onDone, { once: true });
+    djAudio = audio;
+    audio.addEventListener("ended", () => { if (djAudio === audio) djAudio = null; onDone(); }, { once: true });
     audio.play()
       .catch(() => { console.info(`[sfx] couldn't play ${url(file)} (missing file?)`); tryNext(); });
   };
   tryNext();
 }
 
-// "DJ spin that shit": one random DJ sound, then the ambient loop until the music starts.
+// "DJ spin that shit": one random DJ sound.
 export function playDjSpin() {
+  playRandomDj(() => {});
+}
+
+// The player page opened: start the ambient loop, after the DJ sound if one is playing.
+export function ambientForPlayer() {
   clearTimeout(ambientTimer);
-  ambientTimer = setTimeout(startAmbient, AMBIENT_LATEST_MS);
-  playRandomDj(startAmbient);
+  const gen = ambientGen;
+  const dj = djAudio;
+  if (dj && !dj.ended) {
+    const go = () => {
+      if (gen !== ambientGen) return; // the player page closed or the music started
+      clearTimeout(ambientTimer);
+      startAmbient();
+    };
+    dj.addEventListener("ended", go, { once: true });
+    ambientTimer = setTimeout(() => { dj.removeEventListener("ended", go); go(); }, AMBIENT_LATEST_MS);
+  } else {
+    startAmbient();
+  }
 }
