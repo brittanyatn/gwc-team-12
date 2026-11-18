@@ -6,7 +6,8 @@
 // add its name to DJ_SOUNDS. A file that's missing is skipped.
 const DJ_SOUNDS = [
   "dj-scratch.mp3", // record scratch (made for this app)
-  "fah.mp3",        // the "FAHHH" meme sound (add the file yourself)
+  "fah.mp3",        // the "FAHHH" meme sound
+  "vine-boom.mp3",  // the Vine boom
 ];
 const AMBIENT = "ambient-forest.mp3"; // soft forest loop (made for this app)
 
