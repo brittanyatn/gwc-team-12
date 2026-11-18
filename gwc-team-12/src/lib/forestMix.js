@@ -1,28 +1,23 @@
 // Builds a "forest mix" from the listener's recent Spotify listening, matched to the mood
-// they picked in the quiz.
+// they picked in the quiz. Only their own artists are used, so nothing is out of character.
 //
 // 1. THEIR SONGS  Recently played, top songs (4 weeks, 6 months) and recent Liked Songs,
 //                 most recent counting most.
-// 2. MOOD         The quiz answers' genres (the mood question counts double), extra tags for
-//                 the mood answer, and the tags of the artists in the hand-picked playlist
-//                 for that mood (src/lib/backupPlaylists.js).
-// 3. MATCH        Each of their main artists gets Last.fm tags (via the login server) and a
-//                 fit score against the mood. Only artists that fit count.
-// 4. PICK         Mostly their own recent songs that fit; the "where do you go?" answer adds
-//                 a few new songs from the mood playlist (up to 40%).
-// 5. FLOW         Max 2 songs per artist, never the same artist back-to-back,
+// 2. MATCH        Their 12 most-played recent artists are checked against the mood answer's
+//                 genres (MOOD_SEARCH_GENRES) with Spotify search ("is <artist> <genre>?"). Spotify hides
+//                 genres from new apps, but search still filters by them.
+// 3. PICK         Mostly their own recent songs by artists that fit. The "where do you go?"
+//                 answer adds a few deeper tracks by those same artists (up to 40%).
+// 4. FLOW         Max 2 songs per artist, never the same artist back-to-back,
 //                 opens with one of their own songs.
 //
-// Spotify calls go straight from the browser with the user's token (about 6 requests, no
-// search). Only artist names go to Last.fm, through our server.
-
-import { BACKUP_PLAYLISTS } from "./backupPlaylists";
+// If too few songs fit, or Spotify says "too many requests", the player plays the
+// hand-picked playlist for the mood instead (src/lib/backupPlaylists.js).
 
 const API = "https://api.spotify.com/v1";
 const MIX_SIZE = 30;
-const DEFAULT_DISCOVER = 0.25; // used if the quiz was skipped
-const MAX_NEW_SHARE = 0.4;     // at most this share of the mix comes from the mood playlist
-const ARTISTS_TO_TAG = 40;     // their most-played recent artists that get Last.fm tags
+const DEFAULT_DISCOVER = 0.2; // used if the quiz was skipped
+const MAX_NEW_SHARE = 0.4;     // at most this share of the mix is songs new to them
 
 // If Spotify ever says "too many requests", remember it for that login and back off.
 const BLOCK_KEY = "forestSearchBlockedUntil";
@@ -136,99 +131,70 @@ function shuffle(list) {
   return a;
 }
 
-// ---------- Last.fm tags (genre + mood labels for each artist) ----------
-// Spotify hides genres and moods from new apps, so artist tags come from Last.fm through
-// our login server (/lastfm/tags, which holds the LASTFM_API_KEY from .env). No Spotify
-// search is used at all. Tags are remembered in this browser for TAG_CACHE_DAYS.
-const TAG_CACHE_KEY = "forestTagCache";
-const TAG_CACHE_DAYS = 2;
+// ---------- which of their artists fit the mood (Spotify search) ----------
+// Spotify hides genres from new apps, but its search still filters by genre, so we ask it
+// "is <artist> <genre>?" for their main recent artists and the mood answer's genres.
+// About 20 searches the first time; answers are remembered in this browser for
+// CHECK_CACHE_DAYS, so a repeat mix with the same mood needs none.
+const CHECK_CACHE_KEY = "forestGenreCache";
+const CHECK_CACHE_DAYS = 2;
+const ARTISTS_TO_CHECK = 12; // their most-played recent artists (12 × 2 genres = 24 searches)
 
-// "Hip-Hop", "hip hop" → "hiphop"; "R&B" → "rnb"; "lo-fi" → "lofi"
-export const normTag = (t) => String(t).toLowerCase().replace(/&/g, "n").replace(/[^a-z0-9]/g, "");
-
-// Tags that say nothing about how music sounds
-const IGNORE_TAGS = new Set([
-  "seenlive", "favorites", "favourites", "favorite", "favourite", "femalevocalists", "femalevocalist",
-  "malevocalists", "malevocalist", "american", "british", "canadian", "english", "usa", "uk",
-  "australian", "swedish", "korean", "french", "german", "african", "nigerian", "jamaican",
-  "all", "awesome", "beautiful", "love", "sexy", "cool", "amazing", "spotify", "music",
-]);
-const usefulTag = (t) => t && !IGNORE_TAGS.has(t) && !/\d/.test(t);
-
-async function lastfmTags(names, log) {
-  const cache = store.get(TAG_CACHE_KEY, {});
-  const fresh = (e) => !!e && Date.now() - e.t < TAG_CACHE_DAYS * 864e5;
-  const key = (n) => n.toLowerCase();
-  const missing = [...new Set(names)].filter((n) => !fresh(cache[key(n)]));
-  let failed = false;
-  for (let i = 0; i < missing.length; i += 40) {
-    const batch = missing.slice(i, i + 40);
-    try {
-      const res = await fetch("/lastfm/tags?" + batch.map((n) => "artist=" + encodeURIComponent(n)).join("&"));
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || res.status);
-      for (const n of batch) cache[key(n)] = { tags: body[n] || [], t: Date.now() };
-    } catch (e) {
-      failed = true;
-      log.push(`Last.fm tags unavailable (${e.message})`);
-      break;
-    }
-  }
-  for (const k of Object.keys(cache)) if (!fresh(cache[k])) delete cache[k];
-  store.set(TAG_CACHE_KEY, cache);
-  const out = new Map(); // name → [{ tag (normalised), w 0..1 }]
-  for (const n of names) {
-    const tags = (cache[key(n)]?.tags || [])
-      .map((t) => ({ tag: normTag(t.name), w: Math.min(Number(t.count) || 0, 100) / 100 }))
-      .filter((t) => usefulTag(t.tag) && t.w > 0)
-      .slice(0, 10);
-    out.set(n, tags);
-  }
-  return { tags: out, failed: failed && missing.length > 0 };
-}
-
-// ---------- the mood the quiz asked for ----------
-
-// Extra tags for each answer to the mood question (Q4), on top of the answers' own genres.
-const MOOD_TAGS = {
-  acoustic: ["acoustic", "folk", "indie folk", "singer-songwriter", "folk pop", "soft rock", "indie"],
-  beats: ["hip-hop", "hip hop", "rap", "trap", "rnb", "electronic", "house", "dance"],
-  dreamy: ["lo-fi", "chillhop", "ambient", "chill", "chillout", "dream pop", "chillwave", "bedroom pop", "neo-soul", "rnb", "downtempo"],
+// Spotify genre names to check for each answer to the mood question (Q4), matching what
+// the team's hand-picked playlists sound like. Change these to retune the moods.
+export const MOOD_SEARCH_GENRES = {
+  acoustic: ["folk", "singer-songwriter"],
+  beats: ["hip hop", "r&b"],
+  dreamy: ["r&b", "lo-fi"],
 };
+const fresh = (e) => !!e && Date.now() - e.t < CHECK_CACHE_DAYS * 864e5;
 
-// tag → weight, from: every answer's genres (Q4 counts double), the mood question's extra
-// tags, and the tags of the artists in the hand-picked playlist for that mood (so "Dreamy"
-// means what the team's Dreamy playlist sounds like).
-function moodProfile(theme, answers, curatedArtistTags) {
-  const p = new Map();
-  const add = (tag, w) => { const t = normTag(tag); if (usefulTag(t)) p.set(t, (p.get(t) || 0) + w); };
-  for (const [g, w] of genreWeights(theme, answers)) add(g, w);
+// The genres to check: the mood question's answer (Q4); quiz skipped → the Dreamy genres.
+function moodGenres(theme, answers) {
   const sound = answers.find((a) => a?.sound)?.sound;
-  (MOOD_TAGS[sound] || MOOD_TAGS.dreamy).forEach((t) => add(t, 3));
-  // learned from the curated playlist: its artists' most common tags
-  const learned = new Map();
-  for (const tags of curatedArtistTags) tags.forEach(({ tag, w }) => learned.set(tag, (learned.get(tag) || 0) + w));
-  [...learned.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)
-    .forEach(([tag, w], i) => add(tag, 1.5 * (1 - i / 12) * Math.min(1, w / 3))); // a hint, the quiz leads
-  const max = Math.max(1, ...p.values());
-  for (const [t, w] of p) p.set(t, w / max);
-  return p;
+  return MOOD_SEARCH_GENRES[sound] || MOOD_SEARCH_GENRES.dreamy;
 }
 
-// How well an artist fits the mood: the share of its tag weight that matches, 0..1
-function artistFit(tags, profile) {
-  let total = 0;
-  let hit = 0;
-  for (const { tag, w } of tags) {
-    total += w;
-    hit += w * (profile.get(tag) || 0);
-  }
-  return total ? hit / total : 0;
+async function artistsThatFit(token, artists, genres, log) {
+  const cache = store.get(CHECK_CACHE_KEY, {}); // "artistId|genre" → { m: matched?, t: when }
+  const fit = new Map(); // artist id → how many of the mood's genres they match
+  let remembered = 0;
+  let skipped = 0;
+  const checks = artists.flatMap((artist) => genres.map((genre) => ({ artist, genre })));
+  let next = 0;
+  await Promise.all(Array.from({ length: 3 }, async () => { // 3 at a time
+    while (next < checks.length) {
+      const { artist, genre } = checks[next++];
+      const key = `${artist.id}|${genre}`;
+      let matched;
+      if (fresh(cache[key])) {
+        matched = cache[key].m;
+        remembered++;
+      } else {
+        const q = encodeURIComponent(`artist:"${artist.name.replace(/"/g, "")}" genre:"${genre}"`);
+        try {
+          const res = await spotify(token, `/search?type=artist&limit=3&q=${q}`);
+          matched = res.artists.items.some((x) => x.id === artist.id);
+          cache[key] = { m: matched, t: Date.now() };
+        } catch {
+          skipped++;
+          continue;
+        }
+      }
+      if (matched) fit.set(artist.id, (fit.get(artist.id) || 0) + 1);
+    }
+  }));
+  for (const k of Object.keys(cache)) if (!fresh(cache[k])) delete cache[k];
+  store.set(CHECK_CACHE_KEY, cache);
+  log.push(`artists that fit ${genres.join(" / ")}: ${fit.size} of ${artists.length}` +
+    ` (${remembered} remembered` + (skipped ? `, ${skipped} skipped` : "") + ")");
+  return fit;
 }
 
 // ---------- main ----------
 
-const MIN_FIT = 0.2; // below this an artist doesn't really fit the mood
+const DEEP_CUT_ARTISTS = 4;    // new songs come from the best-fitting artists' albums
+const DEEP_CUTS_PER_ARTIST = 3;
 
 export async function buildForestMix(token, theme, answers = []) {
   rateLimitHits = 0;
@@ -240,7 +206,7 @@ export async function buildForestMix(token, theme, answers = []) {
   const addKnown = (track, score) => {
     if (!track?.id || !track.uri || track.is_local) return;
     const e = known.get(track.id) || { track, recency: 0 };
-    e.recency = Math.max(e.recency, score) + 0.1; // a song that shows up in several lists counts a bit more
+    e.recency = Math.max(e.recency, score) + 0.1; // a song in several lists counts a bit more
     known.set(track.id, e);
   };
   const recent = await attempt(log, "recently played", () =>
@@ -260,44 +226,51 @@ export async function buildForestMix(token, theme, answers = []) {
   }
   log.push(`your songs: ${known.size} (recent ${recent?.items.length ?? 0})`);
 
-  // ---------- 2. the hand-picked playlist for this mood (new songs + what the mood sounds like) ----------
-  const sound = answers.find((a) => a?.sound)?.sound || "dreamy";
-  const curatedLink = (BACKUP_PLAYLISTS[sound] || BACKUP_PLAYLISTS.dreamy)?.link;
-  const curatedId = String(curatedLink || "").match(/playlist[/:]([A-Za-z0-9]{22})/)?.[1];
-  let curated = [];
-  if (curatedId) {
-    const page = await attempt(log, "mood playlist", () =>
-      spotify(token, `/playlists/${curatedId}/items?limit=50`).catch(() =>
-        spotify(token, `/playlists/${curatedId}/tracks?limit=50`)));
-    curated = (page?.items || []).map((it) => it.track || it.item)
-      .filter((t) => t?.uri?.startsWith("spotify:track:"));
-  }
-
-  // ---------- 3. which of their artists fit the mood (Last.fm tags) ----------
-  const artistScore = new Map(); // artist name → summed recency (who they listen to most lately)
+  // ---------- 2. which of their main recent artists fit the mood ----------
+  const artistRank = new Map(); // artist id → { id, name, recency }
   for (const { track, recency } of known.values()) {
-    const name = track.artists?.[0]?.name;
-    if (name) artistScore.set(name, (artistScore.get(name) || 0) + recency);
+    const a = track.artists?.[0];
+    if (!a?.id || !a.name) continue;
+    const e = artistRank.get(a.id) || { id: a.id, name: a.name, recency: 0 };
+    e.recency += recency;
+    artistRank.set(a.id, e);
   }
-  const theirArtists = [...artistScore.entries()].sort((a, b) => b[1] - a[1]).slice(0, ARTISTS_TO_TAG).map(([n]) => n);
-  const curatedArtists = [...new Set(curated.map((t) => t.artists?.[0]?.name).filter(Boolean))];
-  const { tags, failed } = await lastfmTags([...theirArtists, ...curatedArtists], log);
-  const profile = moodProfile(theme, answers, curatedArtists.map((n) => tags.get(n) || []));
-  const fit = new Map(theirArtists.map((n) => [n, artistFit(tags.get(n) || [], profile)]));
-  const fitting = theirArtists.filter((n) => fit.get(n) >= MIN_FIT);
-  log.push(`artists that fit the mood: ${fitting.length} of ${theirArtists.length}` + (failed ? " (no Last.fm tags)" : ""));
+  const mainArtists = [...artistRank.values()].sort((a, b) => b.recency - a.recency).slice(0, ARTISTS_TO_CHECK);
+  const genres = moodGenres(theme, answers);
+  const fit = await artistsThatFit(token, mainArtists, genres, log);
+  if (searchBlocked(token)) log.push("Spotify search is paused (rate limit)");
 
-  // ---------- 4. pick: mostly their own recent songs that fit, plus some from the mood playlist ----------
-  const fitOf = (t) => fit.get(t.artists?.[0]?.name) || 0;
+  // ---------- 3. their own songs by artists that fit, most recent first ----------
+  const fitOf = (t) => fit.get(t.artists?.[0]?.id) || 0;
   const theirs = [...known.values()]
-    .filter(({ track }) => fitOf(track) >= MIN_FIT)
-    .sort((a, b) => (b.recency * (0.5 + fitOf(b.track))) - (a.recency * (0.5 + fitOf(a.track))))
+    .filter(({ track }) => fitOf(track) > 0)
+    .sort((a, b) => b.recency * (1 + 0.3 * fitOf(b.track)) - a.recency * (1 + 0.3 * fitOf(a.track)))
     .map((e) => e.track);
-  const newOnes = shuffle(curated.filter((t) => !known.has(t.id)));
 
+  // ---------- 4. new songs: deeper tracks by the artists that fit best (no search) ----------
+  const digInto = mainArtists.filter((a) => fit.has(a.id)).slice(0, DEEP_CUT_ARTISTS);
+  const deepCuts = [];
+  for (const artist of digInto) {
+    const albums = await attempt(log, "artist albums", () =>
+      spotify(token, `/artists/${artist.id}/albums?include_groups=album,single&limit=10`));
+    const found = [];
+    for (const album of shuffle(albums?.items || []).slice(0, 2)) {
+      const tracks = await attempt(log, "album tracks", () =>
+        spotify(token, `/albums/${album.id}/tracks?limit=50`));
+      tracks?.items.forEach((t) => {
+        if (t.uri && !known.has(t.id) && t.artists?.[0]?.id === artist.id) {
+          found.push({ ...t, album: { name: album.name, images: album.images } });
+        }
+      });
+    }
+    deepCuts.push(...shuffle(found).slice(0, DEEP_CUTS_PER_ARTIST));
+  }
+
+  // ---------- 5. pick: mostly their own songs, plus a few deep cuts ----------
   const used = new Set();
-  const perArtist = new Map();
-  const take = (list, n, cap = 2) => {
+  const ownPerArtist = new Map(); // their songs and deep cuts are capped separately,
+  const newPerArtist = new Map(); // so their own songs don't use up an artist's deep cuts
+  const take = (list, n, cap, perArtist) => {
     const out = [];
     for (const t of list) {
       if (out.length >= n) break;
@@ -310,16 +283,13 @@ export async function buildForestMix(token, theme, answers = []) {
     return out;
   };
   const wantNew = Math.round(MIX_SIZE * discover);
-  const fam = take(theirs, MIX_SIZE - wantNew);
-  const disc = take(newOnes, MIX_SIZE - fam.length);
-  // still short of 30: allow a few more songs per artist, theirs first
-  for (const cap of [3, 4]) {
-    fam.push(...take(theirs, MIX_SIZE - fam.length - disc.length, cap));
-    disc.push(...take(newOnes, MIX_SIZE - fam.length - disc.length, cap));
-  }
-  log.push(`mix: ${fam.length} of your songs + ${disc.length} from the mood playlist`);
+  const fam = take(theirs, MIX_SIZE - wantNew, 2, ownPerArtist);
+  const disc = take(deepCuts, MIX_SIZE - fam.length, DEEP_CUTS_PER_ARTIST, newPerArtist);
+  // still short of 30: a few more of their songs per artist
+  for (const cap of [3, 4, 5]) fam.push(...take(theirs, MIX_SIZE - fam.length - disc.length, cap, ownPerArtist));
+  log.push(`mix: ${fam.length} of your songs + ${disc.length} deeper tracks by the same artists`);
 
-  // ---------- 5. flow: open with one of theirs, spread the new ones out, no artist twice in a row ----------
+  // ---------- 6. flow: open with one of theirs, spread the new ones out, no artist twice in a row ----------
   const ordered = [];
   const famQ = [...fam];
   const discQ = [...disc];
@@ -338,9 +308,8 @@ export async function buildForestMix(token, theme, answers = []) {
     if (j > 0) [ordered[i], ordered[j]] = [ordered[j], ordered[i]];
   }
 
-  console.info("[forest mix]", log.join(" · "), "| mood tags:",
-    Object.fromEntries([...profile.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([t, w]) => [t, +w.toFixed(2)])),
-    "| artist fit:", Object.fromEntries(theirArtists.slice(0, 15).map((n) => [n, +fit.get(n).toFixed(2)])));
+  console.info("[forest mix]", log.join(" · "), "| fitting artists:",
+    mainArtists.filter((a) => fit.has(a.id)).map((a) => a.name).join(", ") || "none");
 
   return {
     name: MIX_NAMES[theme] || "Forest Mix",
@@ -348,8 +317,8 @@ export async function buildForestMix(token, theme, answers = []) {
     tracks: ordered,
     familiarCount: fam.length,
     discoverCount: disc.length,
-    themedCount: ordered.length, // every song either fits the mood or comes from the mood playlist
-    noTags: failed,
+    themedCount: ordered.length, // every song is by an artist that fits the mood
+    searchPaused: searchBlocked(token),
     rateLimited: rateLimitHits > 0, // Spotify said "too many requests" during this build
     log,
   };

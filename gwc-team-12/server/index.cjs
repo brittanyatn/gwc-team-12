@@ -98,53 +98,6 @@ app.get('/auth/token', async (req, res) => {
   res.json({ access_token: access_token })
 })
 
-// ---------- Last.fm artist tags (genre + mood labels for the forest mix) ----------
-// GET /lastfm/tags?artist=Frank%20Ocean&artist=SZA → { "Frank Ocean": [{ name, count }], ... }
-// The key stays on this server (LASTFM_API_KEY in .env). Answers are kept in memory.
-const lastfm_key = process.env.LASTFM_API_KEY
-const tagCache = new Map()
-
-async function artistTags(artist) {
-  const k = artist.toLowerCase()
-  if (tagCache.has(k)) return tagCache.get(k)
-  const url = 'https://ws.audioscrobbler.com/2.0/?' + new URLSearchParams({
-    method: 'artist.gettoptags', artist, autocorrect: '1', api_key: lastfm_key, format: 'json'
-  })
-  try {
-    const res = await fetch(url)
-    const body = await res.json()
-    if (body.error) {
-      if (body.error === 10 || body.error === 26) throw new Error('Last.fm key rejected: ' + body.message)
-      tagCache.set(k, []) // e.g. artist not found
-      return []
-    }
-    const tags = (body.toptags?.tag || []).slice(0, 15).map((t) => ({ name: t.name, count: Number(t.count) || 0 }))
-    tagCache.set(k, tags)
-    return tags
-  } catch (e) {
-    if (/key rejected/.test(e.message)) throw e
-    return [] // network hiccup: no tags for this artist this time
-  }
-}
-
-app.get('/lastfm/tags', async (req, res) => {
-  if (!lastfm_key) return res.status(503).json({ error: 'LASTFM_API_KEY is missing from .env' })
-  const artists = [].concat(req.query.artist || []).map(String).filter(Boolean).slice(0, 80)
-  const out = {}
-  let next = 0
-  try {
-    await Promise.all(Array.from({ length: 5 }, async () => { // 5 at a time, gentle on Last.fm
-      while (next < artists.length) {
-        const a = artists[next++]
-        out[a] = await artistTags(a)
-      }
-    }))
-    res.json(out)
-  } catch (e) {
-    res.status(502).json({ error: e.message })
-  }
-})
-
 app.listen(port, '127.0.0.1', () => {
   console.log(`Listening at http://127.0.0.1:${port}`)
 })
