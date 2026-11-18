@@ -17,8 +17,9 @@ import firefliesLight from "../assets/forest/fireflies-light.svg?raw";
 import firefliesDark from "../assets/forest/fireflies-dark.svg?raw";
 import grassLight from "../assets/forest/grass-light.svg";
 import grassDark from "../assets/forest/grass-dark.svg";
-import portalLight from "../assets/forest/portal-light.svg";
-import portalDark from "../assets/forest/portal-dark.svg";
+// Hand-drawn rock frames around the portal (drawn at 4×: 860 × 941 px, shown at 215 × 235.25)
+import portalLight from "../assets/forest/portal-frame-light.png";
+import portalDark from "../assets/forest/portal-frame-dark.png";
 import portalMask from "../assets/forest/portal-mask.svg";
 import albumPlaceholder from "../assets/forest/album-placeholder.jpg";
 import spotifyWhite from "../assets/forest/spotify-white.svg";
@@ -393,7 +394,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
             <img className="player-cover-art" src={cover} alt={track?.album?.name || ""} />
           )}
         </div>
-        <img className="player-frame" src={art.portal} width="166.84" height="201.24" alt="" />
+        <img className="player-frame" src={art.portal} width="215" height="235.25" alt="" />
       </div>
 
       <div className="player-info">

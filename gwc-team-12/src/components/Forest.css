@@ -549,10 +549,16 @@
   }
 }
 
+/* The rock frame drawing is bigger than the window so rocks can spill past it:
+   24px room on the sides, 16px above and 18px below the old frame box. */
 .player-frame {
   position: absolute;
-  left: -3.44px;
-  top: -3.44px;
+  left: -27.44px;
+  top: -19.44px;
+  width: 215px;
+  height: 235.25px;
+  max-width: none;
+  pointer-events: none;
 }
 
 /* Track info */
