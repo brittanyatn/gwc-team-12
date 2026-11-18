@@ -7,6 +7,7 @@
 const DJ_SOUNDS = [
   "fah.mp3",        // the "FAHHH" meme sound
   "vine-boom.mp3",  // the Vine boom
+  "record-scratch.mp3", // record scratch
 ];
 const AMBIENT = "ambient-forest.mp3"; // soft forest loop (made for this app)
 
