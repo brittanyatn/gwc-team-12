@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import "./Forest.css";
-import { buildForestMix, saveMixAsPlaylist } from "../lib/forestMix";
+import { buildForestMix, saveBackupAsPlaylist, saveMixAsPlaylist } from "../lib/forestMix";
+import { backupForced, mixTooWeak, pickBackupPlaylist } from "../lib/backupPlaylists";
 import PortalVortex from "./PortalVortex";
+import Marquee from "./Marquee";
+import { ambientForPlayer, stopAmbient } from "../lib/sfx";
 
 // Player art from the Figma midfi "Player · iPhone Large" frames
 import bgLight from "../assets/forest/bg-light.png";
@@ -53,7 +56,7 @@ function getTestTrackUri() {
   return id ? `spotify:track:${id}` : null;
 }
 
-// Building a mix makes ~100 Spotify requests. React (in development) starts effects
+// Building a mix makes ~25 Spotify requests. React (in development) starts effects
 // twice, so share one build per token + answers instead of doing it all twice.
 let mixCache = { key: null, promise: null };
 function mixFor(token, theme, answers) {
@@ -87,7 +90,9 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
 
   // Forest mix: the listener's top songs filtered by their quiz answers
   const [mix, setMix] = useState(null);
-  const [mixStatus, setMixStatus] = useState("idle"); // idle | loading | ready | error
+  const [mixStatus, setMixStatus] = useState("idle"); // idle | loading | ready | backup | error
+  // Backup playlist (src/lib/backupPlaylists.js), used when the mix can't be built or played
+  const [backup, setBackup] = useState(null);
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
   const [savedUrl, setSavedUrl] = useState(null);
   const [playerProblem, setPlayerProblem] = useState(null); // shown under the song info
@@ -95,26 +100,52 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
   useEffect(() => {
     if (!token || token === "preview-token") return;
     let cancelled = false;
+    setBackup(null);
+    // true if a backup playlist exists for these answers and is now queued up
+    const switchToBackup = (why) => {
+      const pick = pickBackupPlaylist(theme, answers);
+      if (!pick) return false;
+      console.warn(`[backup playlist] ${why} → "${pick.name}"`);
+      setBackup(pick);
+      setMixStatus("backup");
+      return true;
+    };
+
+    // Demo switch / ?backup: skip the mix entirely (no Spotify search at all)
+    if (backupForced()) {
+      setMix(null);
+      if (!switchToBackup("backup forced")) setMixStatus("error");
+      return;
+    }
+
     setMixStatus("loading");
     mixFor(token, theme, answers)
       .then((m) => {
         if (cancelled) return;
         setMix(m);
+        if (mixTooWeak(m) &&
+            switchToBackup(`only ${m.themedCount ?? 0} of ${m.uris.length} songs fit the answers` +
+              (m.searchPaused ? " (search is rate-limited)" : ""))) return;
         setMixStatus(m.uris.length ? "ready" : "error");
       })
       .catch((e) => {
         console.error("[forest mix] failed:", e);
-        if (!cancelled) setMixStatus("error");
+        if (!cancelled && !switchToBackup("the mix couldn't be built")) setMixStatus("error");
       });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, theme]);
 
+  // Saves the forest mix, or (when a backup playlist is in use) a copy of the backup
   const handleSaveMix = async () => {
-    if (!mix || saveStatus === "saving") return;
+    const useBackup = mixStatus === "backup" && backup;
+    if ((!mix && !useBackup) || saveStatus === "saving") return;
     setSaveStatus("saving");
     try {
-      const playlist = await saveMixAsPlaylist(await currentToken(token), mix);
+      const liveToken = await currentToken(token);
+      const playlist = useBackup
+        ? await saveBackupAsPlaylist(liveToken, backup)
+        : await saveMixAsPlaylist(liveToken, mix);
       setSavedUrl(playlist.external_urls?.spotify || null);
       setSaveStatus("saved");
     } catch (e) {
@@ -132,6 +163,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       player.activateElement();
 
       if (!startedRef.current) {
+        stopAmbient(); // fade the waiting music out as the real music starts
         // the player registers with Spotify a moment after it's created;
         // if it never does (failed start / went offline), reconnect once and wait again
         const waitForDevice = async (ms) => {
@@ -154,41 +186,52 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
         const state = await player.getCurrentState();
         const testTrack = getTestTrackUri();
         const liveToken = await currentToken(token);
-        const res = await fetch(
-          `https://api.spotify.com/v1/me/player/play?device_id=${sharedPlayer.deviceId}`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${liveToken}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(
-              testTrack ? { uris: [testTrack] }
-              : mix?.uris?.length ? { uris: mix.uris } // play the forest mix
-              : state?.context?.uri ? { context_uri: state.context.uri } : {}
-            ),
-          }
-        );
-        console.log("Start play:", res.status);
-        if (res.ok || res.status === 204) {
-          startedRef.current = true;
-          return;
-        }
-
-        // Mix/test song rejected? Fall back to resuming whatever played last.
-        if (testTrack || mix?.uris?.length) {
-          console.warn("[forest mix] Spotify rejected the mix, resuming last playback instead");
-          const retry = await fetch(
+        const playOn = async (body, label) => {
+          const res = await fetch(
             `https://api.spotify.com/v1/me/player/play?device_id=${sharedPlayer.deviceId}`,
             {
               method: "PUT",
-              headers: { Authorization: `Bearer ${liveToken}`, "Content-Type": "application/json" },
-              body: JSON.stringify(state?.context?.uri ? { context_uri: state.context.uri } : {}),
+              headers: {
+                Authorization: `Bearer ${liveToken}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(body),
             }
           );
-          console.log("Start play (fallback):", retry.status);
-          if (retry.ok || retry.status === 204) startedRef.current = true;
+          console.log(`Start play (${label}):`, res.status);
+          const ok = res.ok || res.status === 204;
+          if (ok) startedRef.current = true;
+          return ok;
+        };
+        const resumeLast = state?.context?.uri ? { context_uri: state.context.uri } : {};
+
+        // 1. what's queued up: test song, backup playlist, forest mix, or last playback
+        if (testTrack) {
+          if (await playOn({ uris: [testTrack] }, "test song")) return;
+        } else if (backup) {
+          if (await playOn({ context_uri: backup.uri }, `backup "${backup.name}"`)) return;
+        } else if (mix?.uris?.length) {
+          if (await playOn({ uris: mix.uris }, "forest mix")) return;
+          // 2. mix rejected? try the backup playlist for these answers
+          const pick = pickBackupPlaylist(theme, answers);
+          if (pick) {
+            console.warn(`[backup playlist] Spotify rejected the mix → "${pick.name}"`);
+            if (await playOn({ context_uri: pick.uri }, `backup "${pick.name}"`)) {
+              setBackup(pick);
+              setMixStatus("backup");
+              setSaveStatus("idle"); // "+ Save mix" now saves the backup
+              setSavedUrl(null);
+              return;
+            }
+          }
+        } else {
+          await playOn(resumeLast, "last playback");
+          return;
         }
+
+        // 3. last resort: resume whatever the listener played last on Spotify
+        console.warn("[forest mix] Spotify rejected it, resuming last playback instead");
+        await playOn(resumeLast, "fallback: last playback");
         return;
       }
 
@@ -286,6 +329,13 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
     };
   }, [token]);
 
+  // Ambient waiting loop: only while this player page is open, until the music starts
+  useEffect(() => {
+    ambientForPlayer();
+    return () => stopAmbient(400); // leaving the player page
+  }, []);
+  useEffect(() => { if (started) stopAmbient(); }, [started]);
+
   // Move the progress bar forward while a song is playing
   const isPlaying = started && paused;
   useEffect(() => {
@@ -311,23 +361,23 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       {/* Back to the quiz — top-left corner of the widget */}
       {onBack && (
         <div className="back-pill">
-          <button type="button" onClick={() => { playerRef.current?.pause(); onBack(); }}>
+          <button type="button" onClick={() => { stopAmbient(400); playerRef.current?.pause(); onBack(); }}>
             ‹ Quiz
           </button>
         </div>
       )}
 
-      {/* Save / open the forest mix — top-right corner of the widget */}
-      {mixStatus === "ready" && (
+      {/* Save / open the forest mix (or a copy of the backup playlist) — top-right corner */}
+      {(mixStatus === "ready" || (mixStatus === "backup" && backup)) && (
         <div className="mix-pill">
           {saveStatus === "saved" && savedUrl ? (
-            <a href={savedUrl} target="_blank" rel="noreferrer" title={`Open "${mix.name}" in Spotify`}>
+            <a href={savedUrl} target="_blank" rel="noreferrer" title="Open your saved mix in Spotify">
               <img src={spotifyWhite} width="14" height="14" alt="" /> Open in Spotify
             </a>
           ) : saveStatus === "saved" ? (
             <span>✓ Saved</span>
           ) : (
-            <button type="button" onClick={handleSaveMix} disabled={saveStatus === "saving"} title="Save this mix as a private playlist">
+            <button type="button" onClick={handleSaveMix} disabled={saveStatus === "saving"} title="Save a copy of this mix as a private playlist in your Spotify">
               {saveStatus === "saving" ? "Saving…" : saveStatus === "error" ? "Retry save" : "+ Save mix"}
             </button>
           )}
@@ -349,18 +399,19 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       <div className="player-info">
         {started && track ? (
           <>
-            <p className="player-title">{track.name}</p>
-            <p className="player-artist">{track.artists.map((a) => a.name).join(", ")}</p>
+            <Marquee className="player-title">{track.name}</Marquee>
+            <Marquee className="player-artist">{track.artists.map((a) => a.name).join(", ")}</Marquee>
           </>
         ) : (
           <>
             <p className="player-title">{playerRef ? "Connected." : "Connecting…"}</p>
-            <p className="player-artist">
+            <Marquee className="player-artist">
               {playerProblem ? playerProblem
                 : mixStatus === "loading" ? "Gathering your forest mix…"
                 : mixStatus === "ready" ? `${mix.name} · ${mix.uris.length} songs · press play`
+                : mixStatus === "backup" ? `${backup.name} · press play`
                 : "Press play to start"}
-            </p>
+            </Marquee>
           </>
         )}
       </div>

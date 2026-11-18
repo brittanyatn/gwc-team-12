@@ -2,10 +2,12 @@
 import React, { useState } from 'react';
 import QuizQuestion from './QuizQuestion';
 import ForestCard, { useSystemForestTheme } from './ForestCard';
+import { playDjSpin } from '../lib/sfx';
 
 // `genres` = Spotify genre names each answer adds to the forest mix (see src/lib/forestMix.js).
 // Each option's genres echo its own imagery; overlap between questions is kept low so
 // no genre piles up just from picking "middle" answers. Q4 (`weight: 2`) counts double.
+// Q4's `sound` also picks the backup playlist (see src/lib/backupPlaylists.js).
 const QUIZ_DATA = [
   {
     id: 1,
@@ -38,9 +40,9 @@ const QUIZ_DATA = [
     id: 4,
     question: "What sound fits your mood right now?",
     options: [
-      { text: "Warm acoustic & breezy strings", light: 2, dark: 0, weight: 2, genres: ["acoustic", "folk"] },
-      { text: "Deep bass & driving beats", light: 0, dark: 2, weight: 2, genres: ["electronic", "house", "hip hop"] },
-      { text: "Dreamy lo-fi & ambient pads", light: 1, dark: 1, weight: 2, genres: ["lo-fi", "ambient"] },
+      { text: "Warm acoustic & breezy strings", sound: "acoustic", light: 2, dark: 0, weight: 2, genres: ["acoustic", "folk"] },
+      { text: "Deep bass & driving beats", sound: "beats", light: 0, dark: 2, weight: 2, genres: ["electronic", "house", "hip hop"] },
+      { text: "Dreamy lo-fi & ambient pads", sound: "dreamy", light: 1, dark: 1, weight: 2, genres: ["lo-fi", "ambient"] },
     ]
   },
   {
@@ -151,7 +153,7 @@ export default function OnboardingQuiz({ onComplete }) {
         </p>
         <p className="forest-kicker">Theme assigned: {selectedTheme}</p>
         <div className="forest-spacer" style={{ height: 18 }} />
-        <button type="button" className="btn-forest" onClick={() => onComplete(selectedTheme, answers)}>
+        <button type="button" className="btn-forest" onClick={() => { playDjSpin(); onComplete(selectedTheme, answers); }}>
           DJ spin that shit
         </button>
       </ForestCard>

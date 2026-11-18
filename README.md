@@ -38,6 +38,8 @@ Copy the example file and paste your keys in (no quotes, no spaces):
     npm run server     # terminal 1: Spotify login, http://127.0.0.1:3000
     npm run dev        # terminal 2: the app
 
+Or start both in one terminal with `npm start` (Ctrl + C stops both).
+
 Open **http://127.0.0.1:1420/** (use `127.0.0.1`, not `localhost`, or Spotify login won't return to the app). Click **Connect to Spotify**, take the quiz, and press play.
 
 ### Troubleshooting
@@ -46,6 +48,8 @@ Open **http://127.0.0.1:1420/** (use `127.0.0.1`, not `localhost`, or Spotify lo
 - **Spotify says you're not allowed / 403:** your Spotify email isn't in the app's **User Management** list.
 - **Play does nothing, or the console says "Failed to initialize player":** refresh the page and press play again. Make sure you're on Premium and in desktop Chrome (not Safari or the VS Code preview browser).
 - **The mix is your own songs instead of new ones, or the console says "search is paused (rate limit)":** Spotify limits how many searches an app can make. The app falls back to your own songs and tries search again later. If Spotify refuses the mix entirely, play resumes your last Spotify music instead.
+
+- **A backup playlist plays instead of the forest mix:** the mix couldn't be built, too few of its songs matched the answers (often because Spotify's search limit was hit), or Spotify refused it. The backup playlists are set in `src/lib/backupPlaylists.js`, one per answer to the sound question (plus an optional one for skipping the quiz). Add `?backup` to the page address, or set `ALWAYS_USE_BACKUP = true` in that file, to always use them.
 
 # APIs used
     Spotify Web Playback SDK, Spotify Web API (login via the Express server in `server/index.cjs`)
