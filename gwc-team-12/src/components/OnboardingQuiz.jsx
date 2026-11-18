@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import QuizQuestion from './QuizQuestion';
 import ForestCard, { useSystemForestTheme } from './ForestCard';
 import { playDjSpin } from '../lib/sfx';
+import { demoMode, setDemoMode } from '../lib/backupPlaylists';
 
 // `genres` = Spotify genre names each answer adds to the forest mix (see src/lib/forestMix.js).
 // Each option's genres echo its own imagery; overlap between questions is kept low so
@@ -65,6 +66,26 @@ const QUIZ_DATA = [
     ]
   }
 ];
+
+// "Demo mode" switch on the welcome screen: on = the hand-picked playlists play,
+// off = the forest mix is built from the listener's Spotify (see backupPlaylists.js).
+function DemoToggle() {
+  const [on, setOn] = useState(demoMode);
+  const flip = () => { setDemoMode(!on); setOn(!on); };
+  return (
+    <button
+      type="button"
+      className={`demo-toggle ${on ? 'is-on' : ''}`}
+      role="switch"
+      aria-checked={on}
+      onClick={flip}
+      title={on ? 'Plays the hand-picked playlist for your mood answer' : 'Builds a forest mix from your Spotify (uses Spotify search)'}
+    >
+      <span className="demo-toggle-track"><span className="demo-toggle-knob" /></span>
+      {on ? 'Demo mode: curated playlists' : 'Demo mode off: forest mix'}
+    </button>
+  );
+}
 
 export default function OnboardingQuiz({ onComplete }) {
   const [screen, setScreen] = useState('welcome');
@@ -134,7 +155,9 @@ export default function OnboardingQuiz({ onComplete }) {
             Skip to Dark Forest
           </button>
         </div>
-        <div className="forest-spacer" style={{ height: 30 }} />
+        <div className="forest-spacer" style={{ height: 12 }} />
+        <DemoToggle />
+        <div className="forest-spacer" style={{ height: 12 }} />
       </ForestCard>
     );
   }

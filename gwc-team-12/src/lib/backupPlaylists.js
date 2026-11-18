@@ -22,10 +22,26 @@ export const BACKUP_PLAYLISTS = {
   skipped:  { label: "Forest",   link: "" },
 };
 
-// DEMO SWITCH: true = always play the backup playlists and don't build a mix at all
-// (no Spotify search, 1 request per play). You can also add ?backup to the page
-// address to force it without changing code, e.g. http://127.0.0.1:1420/?backup
-export const ALWAYS_USE_BACKUP = false;
+// DEMO MODE: on = every quiz plays the hand-picked playlist for its mood answer (no forest
+// mix, no Spotify search). Off = build the forest mix, with these playlists as the fallback.
+// People switch it with the "Demo mode" button on the welcome screen; the choice is kept in
+// that browser. DEMO_MODE_DEFAULT is what a browser starts with.
+// ?backup in the page address forces it on, ?nobackup forces it (and all backups) off.
+export const DEMO_MODE_DEFAULT = true;
+const DEMO_KEY = "forestDemoMode";
+
+export function demoMode() {
+  try {
+    const saved = globalThis.localStorage?.getItem(DEMO_KEY);
+    return saved === null || saved === undefined ? DEMO_MODE_DEFAULT : saved === "on";
+  } catch {
+    return DEMO_MODE_DEFAULT;
+  }
+}
+
+export function setDemoMode(on) {
+  try { globalThis.localStorage?.setItem(DEMO_KEY, on ? "on" : "off"); } catch { /* private mode */ }
+}
 
 // The mix counts as good enough if at least this many of its 30 songs fit the
 // answers. Below that it's mostly unrelated favourites, so the backup plays instead.
@@ -43,7 +59,7 @@ export function backupDisabled() {
 
 export function backupForced() {
   if (backupDisabled()) return false;
-  if (ALWAYS_USE_BACKUP) return true;
+  if (demoMode()) return true;
   try {
     return new URLSearchParams(globalThis.location?.search || "").has("backup");
   } catch {

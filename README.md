@@ -9,7 +9,9 @@ Customizable mp3 player based on a personality quiz
 2. **Take the forest quiz** (or skip to the Light or Dark Forest). The answers pick a light or dark theme and the kind of music you're in the mood for.
 3. **"DJ spin that shit"** plays a random sound effect and opens the player.
 4. **The player** builds a 30-song "forest mix" from your own Spotify listening, shaped by your answers, while a soft ambient loop plays. Press play to start it, and **+ Save mix** to save it as a private playlist in your Spotify.
-5. If the mix can't be built or played, a **backup playlist** that matches your mood answer plays instead.
+5. If the mix can't be built or played, or Spotify says "too many requests", a **backup playlist** that matches your mood answer plays instead.
+
+**Demo mode** (the switch on the welcome screen, on by default) skips the forest mix and always plays the hand-picked playlist for your mood answer. Turn it off to build a forest mix from your own Spotify. The setting is remembered in that browser.
 
 ## Setup on a new laptop
 
@@ -58,7 +60,7 @@ All paths are inside the nested `gwc-team-12/gwc-team-12` folder.
 | --- | --- | --- |
 | Quiz questions, answers and their genres | `src/components/OnboardingQuiz.jsx` | Each answer adds light/dark points and genre tags. Question 4 (the mood question) also has a `sound` tag that picks the backup playlist. |
 | Forest mix | `src/lib/forestMix.js` | Uses your top songs, Liked Songs and recent plays. Spotify search checks which of your top 10 artists fit Question 4's genre and finds new songs in that genre: about 12 searches for a first mix. Results are remembered in the browser for `CACHE_DAYS` (2), so a repeat mix needs no searches. |
-| Backup playlists | `src/lib/backupPlaylists.js` | One public playlist link per mood answer (Acoustic, Beats, Dreamy) and an optional one for skipping the quiz. Used when the mix fails, when fewer than `MIN_THEMED_SONGS` (15) songs fit the answers, or when Spotify refuses the mix. |
+| Backup playlists and Demo mode | `src/lib/backupPlaylists.js` | One public playlist link per mood answer (Acoustic, Beats, Dreamy) and an optional one for skipping the quiz. `DEMO_MODE_DEFAULT` sets whether Demo mode starts on. Used when the mix fails, when fewer than `MIN_THEMED_SONGS` (15) songs fit the answers, or when Spotify refuses the mix. |
 | Sound effects | `src/lib/sfx.js`, `public/sounds/` | `DJ_SOUNDS` lists the clips picked at random for "DJ spin that shit". `ambient-forest.mp3` loops on the player page until the music starts. |
 | Player screen | `src/components/SpotifyPlayer.jsx` | Spotify Web Playback SDK player, play/skip controls, Save mix button, swirling portal (`PortalVortex.jsx`) and scrolling text for long titles (`Marquee.jsx`). |
 | Look and colours | `src/components/Forest.css`, `src/assets/forest/` | Light/dark theme colours are CSS variables. The rock frame (`portal-frame-*.png`), pebble buttons (`prev/play/pause/next-*.svg`) and firefly tracker (`firefly-*.png`) come in light and dark versions. |
@@ -85,7 +87,7 @@ Add these to the page address:
 - **Spotify says you're not allowed / 403:** your Spotify email isn't in the app's **User Management** list.
 - **Play does nothing, or the console says "Failed to initialize player":** refresh the page and press play again. Make sure you're on Premium and in desktop Chrome (not Safari or the VS Code preview browser).
 - **The mix is your own songs instead of new ones, or the console says "search is paused (rate limit)":** Spotify limits how many searches an app can make. The app falls back to your own songs and tries search again later. If Spotify refuses the mix entirely, play resumes your last Spotify music instead.
-- **A backup playlist plays instead of the forest mix:** the mix couldn't be built, too few of its songs matched the answers (often because Spotify's search limit was hit), or Spotify refused it. The backup playlists are set in `src/lib/backupPlaylists.js`, one per answer to the sound question (plus an optional one for skipping the quiz). Add `?backup` to the page address, or set `ALWAYS_USE_BACKUP = true` in that file, to always use them.
+- **A backup playlist plays instead of the forest mix:** the mix couldn't be built, too few of its songs matched the answers (often because Spotify's search limit was hit), or Spotify refused it. The backup playlists are set in `src/lib/backupPlaylists.js`, one per answer to the sound question (plus an optional one for skipping the quiz). Turn on **Demo mode** on the welcome screen (or add `?backup` to the page address) to always use them.
 
 ## APIs used
 

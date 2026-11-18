@@ -874,3 +874,51 @@
 @media (prefers-reduced-motion: reduce) {
   .marquee.is-scrolling .marquee-track { animation: none; }
 }
+
+/* ---------- Demo mode switch on the welcome screen (OnboardingQuiz.jsx) ---------- */
+.forest-card .demo-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 10px 4px 5px;
+  border: none;
+  border-radius: 999px;
+  background: var(--forest-step-off);
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: normal;
+  color: var(--forest-muted);
+  cursor: pointer;
+}
+.forest-card .demo-toggle:hover { color: var(--forest-ink); }
+.forest-card .demo-toggle:focus-visible {
+  outline: 2px solid var(--forest-accent);
+  outline-offset: 2px;
+}
+.demo-toggle-track {
+  position: relative;
+  width: 24px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--forest-step-off);
+  box-shadow: inset 0 0 0 1px var(--forest-answer-border);
+  transition: background 0.2s;
+}
+.demo-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--forest-muted);
+  transition: transform 0.2s, background 0.2s;
+}
+.demo-toggle.is-on .demo-toggle-track { background: var(--forest-accent); box-shadow: none; }
+.demo-toggle.is-on .demo-toggle-knob { transform: translateX(10px); background: var(--forest-on-accent); }
+.demo-toggle.is-on { color: var(--forest-ink); }
+@media (prefers-reduced-motion: reduce) {
+  .demo-toggle-track, .demo-toggle-knob { transition: none; }
+}
