@@ -417,7 +417,7 @@
 /* Everything in the normal flow sits above the scenery */
 .player-card > .player-portal,
 .player-card > .player-info,
-.player-card > .player-progress,
+.player-card > .player-progress-wrap,
 .player-card > .player-controls {
   position: relative;
   z-index: 1;
@@ -605,6 +605,78 @@
   height: 4px;
   border-radius: 2px;
   background: var(--player-played);
+  transition: width 0.5s linear; /* matches the 0.5 s position updates */
+}
+
+/* ---------- Firefly progress tracker + glitter (ProgressFirefly.jsx) ---------- */
+.player-progress-wrap {
+  position: relative;
+  width: 220px;
+  height: 4px;
+}
+.player-progress-wrap .player-progress {
+  position: absolute;
+  inset: 0;
+}
+.firefly-track {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.firefly {
+  position: absolute;
+  top: 50%;
+  width: 30px;
+  height: 25px;
+  max-width: none;
+  /* the body (not the antennae) sits on the progress point */
+  transform: translate(-41%, -52%);
+  transition: left 0.5s linear;
+  filter: drop-shadow(0 0 3px rgba(255, 236, 160, 0.7));
+}
+.darkForest .firefly {
+  filter: drop-shadow(0 0 3px rgba(120, 255, 230, 0.7));
+}
+.firefly.no-slide {
+  transition: none;
+}
+.firefly-track.is-playing .firefly {
+  animation: firefly-bob 1.6s ease-in-out infinite;
+}
+@keyframes firefly-bob {
+  0%, 100% { transform: translate(-41%, -52%); }
+  50% { transform: translate(-41%, calc(-52% - 2px)); }
+}
+
+.glitter {
+  position: absolute;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation-name: glitter-fade;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+.glitter-star {
+  border-radius: 0;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+}
+.lightForest .glitter-0 { background: #fff6c2; box-shadow: 0 0 4px #ffe58a; }
+.lightForest .glitter-1 { background: #efbf74; box-shadow: 0 0 4px #efbf74; }
+.lightForest .glitter-2 { background: #ffffff; box-shadow: 0 0 4px #fff6e8; }
+.darkForest .glitter-0 { background: #acf1e6; box-shadow: 0 0 4px #3fd9c4; }
+.darkForest .glitter-1 { background: #3fd9c4; box-shadow: 0 0 4px #3fd9c4; }
+.darkForest .glitter-2 { background: #ffffff; box-shadow: 0 0 4px #effffd; }
+@keyframes glitter-fade {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--drift-x)), calc(-50% + var(--drift-y))) scale(0.3) rotate(90deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .firefly, .player-played { transition: none; }
+  .firefly-track.is-playing .firefly { animation: none; }
 }
 
 /* Oval control buttons (art is in the SVGs) */

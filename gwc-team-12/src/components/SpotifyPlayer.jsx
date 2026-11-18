@@ -4,6 +4,7 @@ import { buildForestMix, saveBackupAsPlaylist, saveMixAsPlaylist } from "../lib/
 import { backupForced, mixTooWeak, pickBackupPlaylist } from "../lib/backupPlaylists";
 import PortalVortex from "./PortalVortex";
 import Marquee from "./Marquee";
+import ProgressFirefly from "./ProgressFirefly";
 import { ambientForPlayer, stopAmbient } from "../lib/sfx";
 
 // Player art from the Figma midfi "Player · iPhone Large" frames
@@ -417,8 +418,12 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
         )}
       </div>
 
-      <div className="player-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
-        <div className="player-played" style={{ width: `${progress * 100}%` }} />
+      <div className="player-progress-wrap">
+        <div className="player-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+          <div className="player-played" style={{ width: `${progress * 100}%` }} />
+        </div>
+        {/* firefly tracker + glitter trail */}
+        <ProgressFirefly progress={progress} playing={isPlaying} theme={theme} />
       </div>
 
       <div className="player-controls">
