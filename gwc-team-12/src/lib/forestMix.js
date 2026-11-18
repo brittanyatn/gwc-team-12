@@ -143,7 +143,7 @@ const ARTISTS_TO_CHECK = 12; // their most-played recent artists (12 × 2 genres
 // Spotify genre names to check for each answer to the mood question (Q4), matching what
 // the team's hand-picked playlists sound like. Change these to retune the moods.
 export const MOOD_SEARCH_GENRES = {
-  acoustic: ["folk", "singer-songwriter"],
+  acoustic: ["indie", "singer-songwriter"], // indie with acoustic vibes, not folk
   beats: ["hip hop", "r&b"],
   dreamy: ["r&b", "lo-fi"],
 };
