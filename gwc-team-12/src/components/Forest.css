@@ -765,3 +765,31 @@
   outline: 2px solid var(--player-played);
   outline-offset: 2px;
 }
+
+/* ---------- Scrolling text for lines that don't fit (Marquee.jsx) ---------- */
+.marquee {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: clip;
+}
+.marquee-track {
+  display: inline-flex;
+}
+.marquee.is-scrolling {
+  width: 100%;
+  text-align: left;
+  /* soft fade at both edges while it scrolls */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+}
+.marquee.is-scrolling .marquee-track {
+  padding-left: 12px; /* start clear of the left fade */
+  animation: marquee-scroll var(--marquee-duration) linear infinite;
+}
+@keyframes marquee-scroll {
+  0%, 20% { transform: translateX(0); }
+  100% { transform: translateX(calc(-1 * var(--marquee-distance))); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee.is-scrolling .marquee-track { animation: none; }
+}

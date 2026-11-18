@@ -3,6 +3,7 @@ import "./Forest.css";
 import { buildForestMix, saveBackupAsPlaylist, saveMixAsPlaylist } from "../lib/forestMix";
 import { backupForced, mixTooWeak, pickBackupPlaylist } from "../lib/backupPlaylists";
 import PortalVortex from "./PortalVortex";
+import Marquee from "./Marquee";
 import { ambientForPlayer, stopAmbient } from "../lib/sfx";
 
 // Player art from the Figma midfi "Player · iPhone Large" frames
@@ -398,19 +399,19 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       <div className="player-info">
         {started && track ? (
           <>
-            <p className="player-title">{track.name}</p>
-            <p className="player-artist">{track.artists.map((a) => a.name).join(", ")}</p>
+            <Marquee className="player-title">{track.name}</Marquee>
+            <Marquee className="player-artist">{track.artists.map((a) => a.name).join(", ")}</Marquee>
           </>
         ) : (
           <>
             <p className="player-title">{playerRef ? "Connected." : "Connecting…"}</p>
-            <p className="player-artist">
+            <Marquee className="player-artist">
               {playerProblem ? playerProblem
                 : mixStatus === "loading" ? "Gathering your forest mix…"
                 : mixStatus === "ready" ? `${mix.name} · ${mix.uris.length} songs · press play`
                 : mixStatus === "backup" ? `${backup.name} · press play`
                 : "Press play to start"}
-            </p>
+            </Marquee>
           </>
         )}
       </div>
