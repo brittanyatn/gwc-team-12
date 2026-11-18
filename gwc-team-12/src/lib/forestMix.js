@@ -417,7 +417,7 @@ export async function buildForestMix(token, theme, answers = []) {
 export async function saveMixAsPlaylist(token, mix) {
   const body = JSON.stringify({
     name: `${mix.name} · Enchanted Grove`,
-    description: "Made by the Enchanted Grove forest DJ from your favourite songs and quiz answers.",
+    description: mix.description || "Made by the Enchanted Grove forest DJ from your favourite songs and quiz answers.",
     public: false,
   });
 
@@ -438,4 +438,31 @@ export async function saveMixAsPlaylist(token, mix) {
   }
 
   return playlist;
+}
+
+// The songs in a playlist (up to 100), e.g. a backup playlist, so it can be copied.
+// No search involved: 1 request.
+export async function playlistTrackUris(token, playlistId) {
+  let page;
+  try {
+    page = await spotify(token, `/playlists/${playlistId}/items?limit=100`);
+  } catch {
+    page = await spotify(token, `/playlists/${playlistId}/tracks?limit=100`); // older form
+  }
+  return (page?.items || [])
+    .map((it) => (it.track || it.item)?.uri)
+    .filter((uri) => uri && uri.startsWith("spotify:track:")); // skip local files and podcasts
+}
+
+// "+ Save mix" while a backup playlist is playing: copy it into the listener's own
+// Spotify as a private playlist (~3 requests, no search).
+export async function saveBackupAsPlaylist(token, backup) {
+  const id = backup.uri.split(":").pop();
+  const uris = await playlistTrackUris(token, id);
+  if (!uris.length) throw new Error("the backup playlist has no songs Spotify can copy");
+  return saveMixAsPlaylist(token, {
+    name: backup.name,
+    uris,
+    description: "Your Enchanted Grove forest mix, picked from your quiz answers.",
+  });
 }

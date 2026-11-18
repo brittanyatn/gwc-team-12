@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "./Forest.css";
-import { buildForestMix, saveMixAsPlaylist } from "../lib/forestMix";
+import { buildForestMix, saveBackupAsPlaylist, saveMixAsPlaylist } from "../lib/forestMix";
 import { backupForced, mixTooWeak, pickBackupPlaylist } from "../lib/backupPlaylists";
 import PortalVortex from "./PortalVortex";
 
@@ -134,11 +134,16 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, theme]);
 
+  // Saves the forest mix, or (when a backup playlist is in use) a copy of the backup
   const handleSaveMix = async () => {
-    if (!mix || saveStatus === "saving") return;
+    const useBackup = mixStatus === "backup" && backup;
+    if ((!mix && !useBackup) || saveStatus === "saving") return;
     setSaveStatus("saving");
     try {
-      const playlist = await saveMixAsPlaylist(await currentToken(token), mix);
+      const liveToken = await currentToken(token);
+      const playlist = useBackup
+        ? await saveBackupAsPlaylist(liveToken, backup)
+        : await saveMixAsPlaylist(liveToken, mix);
       setSavedUrl(playlist.external_urls?.spotify || null);
       setSaveStatus("saved");
     } catch (e) {
@@ -211,6 +216,8 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
             if (await playOn({ context_uri: pick.uri }, `backup "${pick.name}"`)) {
               setBackup(pick);
               setMixStatus("backup");
+              setSaveStatus("idle"); // "+ Save mix" now saves the backup
+              setSavedUrl(null);
               return;
             }
           }
@@ -350,26 +357,17 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
         </div>
       )}
 
-      {/* Backup playlist: open it in Spotify — top-right corner of the widget */}
-      {mixStatus === "backup" && backup && (
-        <div className="mix-pill">
-          <a href={backup.url} target="_blank" rel="noreferrer" title={`Open "${backup.name}" in Spotify`}>
-            <img src={spotifyWhite} width="14" height="14" alt="" /> Open in Spotify
-          </a>
-        </div>
-      )}
-
-      {/* Save / open the forest mix — top-right corner of the widget */}
-      {mixStatus === "ready" && (
+      {/* Save / open the forest mix (or a copy of the backup playlist) — top-right corner */}
+      {(mixStatus === "ready" || (mixStatus === "backup" && backup)) && (
         <div className="mix-pill">
           {saveStatus === "saved" && savedUrl ? (
-            <a href={savedUrl} target="_blank" rel="noreferrer" title={`Open "${mix.name}" in Spotify`}>
+            <a href={savedUrl} target="_blank" rel="noreferrer" title="Open your saved mix in Spotify">
               <img src={spotifyWhite} width="14" height="14" alt="" /> Open in Spotify
             </a>
           ) : saveStatus === "saved" ? (
             <span>✓ Saved</span>
           ) : (
-            <button type="button" onClick={handleSaveMix} disabled={saveStatus === "saving"} title="Save this mix as a private playlist">
+            <button type="button" onClick={handleSaveMix} disabled={saveStatus === "saving"} title="Save a copy of this mix as a private playlist in your Spotify">
               {saveStatus === "saving" ? "Saving…" : saveStatus === "error" ? "Retry save" : "+ Save mix"}
             </button>
           )}
