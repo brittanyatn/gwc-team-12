@@ -54,7 +54,7 @@ function getTestTrackUri() {
   return id ? `spotify:track:${id}` : null;
 }
 
-// Building a mix makes ~100 Spotify requests. React (in development) starts effects
+// Building a mix makes ~25 Spotify requests. React (in development) starts effects
 // twice, so share one build per token + answers instead of doing it all twice.
 let mixCache = { key: null, promise: null };
 function mixFor(token, theme, answers) {

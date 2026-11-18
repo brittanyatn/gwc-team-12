@@ -1,7 +1,7 @@
 // Backup playlists: hand-picked Spotify playlists, one per answer to the sound question (Q4).
 // The light/dark theme only changes the look, not which playlist plays.
 //
-// The forest mix needs ~70 Spotify requests, and Spotify's search limit can block it.
+// The forest mix needs ~25 Spotify requests (12 of them searches), and Spotify's search limit can block it.
 // Playing one of these takes a single request, so it works even when search is blocked.
 // The player switches to the matching backup playlist when:
 //   - the mix fails to build, or comes back empty,

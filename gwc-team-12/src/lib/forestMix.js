@@ -6,9 +6,9 @@
 // 1. GENRES   Quiz answers + theme → weighted genre keywords.
 // 2. FAMILIAR Pool of songs the listener knows: top tracks (4 weeks / 6 months /
 //             all time), Liked Songs, and recently played.
-// 3. MATCH    Which of the listener's main artists fit those genres? Spotify hides
-//             artist genres from new apps, but its search still filters by genre, so
-//             we ask it "is <artist> <genre>?" for each artist × top genre.
+// 3. MATCH    Which of the listener's main artists fit the mood question's genre?
+//             Spotify hides artist genres from new apps, but its search still filters
+//             by genre, so we ask it "is <artist> <genre>?" once per artist.
 //             Only songs by matching artists count as familiar picks.
 // 4. DISCOVER New songs in the same genres: deep cuts from the matching artists, and
 //             genre search limited to the years the listener usually plays.
@@ -27,23 +27,31 @@ const DEFAULT_DISCOVER = 0.35; // used if the quiz was skipped
 const DEEP_CUT_ARTISTS = 4; // how many top-matching artists to dig into
 const DEEP_CUTS_PER_ARTIST = 3;
 const ARTISTS_TO_CHECK = 10; // listener's main artists to test against the genres
-const KEYWORDS_TO_CHECK = 6; // one main genre per answer (two for the sound question)
-const GENRE_SEARCHES = 2;    // genres used for new-song search (2 pages each)
+// Search is the scarce part (Spotify rate-limits it), so only ONE genre is searched:
+// the main genre of the mood question (Q4). First mix ≈ 10 artist checks + 2 new-song
+// searches = 12 searches. The other answers still set the light/dark theme.
+const KEYWORDS_TO_CHECK = 1;
+const GENRE_SEARCHES = 1;    // genres used for new-song search (2 pages each)
 
 // Spotify rate-limits search hard in development mode (a burst of ~100 searches
-// earned a 22-hour block in testing). So: remember artist/genre answers in the
-// browser for a week, and stop searching entirely once Spotify says "too many".
+// earned a 22-hour block in testing). So: remember artist/genre answers AND new-song
+// search results in this browser for 2 days (today's practice + tomorrow's demo), so
+// a repeat mix with the same mood answer needs no searches at all; and stop
+// searching entirely once Spotify says "too many" (kept until the block ends).
 const CACHE_KEY = "forestGenreCache";
+const SONG_CACHE_KEY = "forestSongSearchCache";
 const BLOCK_KEY = "forestSearchBlockedUntil";
-const CACHE_DAYS = 7;
-const store = {
+const CACHE_DAYS = 2;
+const fresh = (e) => !!e && Date.now() - e.t < CACHE_DAYS * 864e5;
+const makeStore = (area) => ({
   get(key, fallback) {
-    try { return JSON.parse(globalThis.localStorage?.getItem(key)) ?? fallback; } catch { return fallback; }
+    try { return JSON.parse(globalThis[area]?.getItem(key)) ?? fallback; } catch { return fallback; }
   },
   set(key, value) {
-    try { globalThis.localStorage?.setItem(key, JSON.stringify(value)); } catch { /* private mode etc. */ }
+    try { globalThis[area]?.setItem(key, JSON.stringify(value)); } catch { /* private mode etc. */ }
   },
-};
+});
+const store = makeStore("localStorage");
 // The block is Spotify's, per app: remember it with the login it hit, so switching
 // to another Spotify app (new keys → new login) starts searching again.
 const loginTag = (token) => String(token).slice(-12);
@@ -127,6 +135,9 @@ export function genreWeights(theme, answers = []) {
 // highest-scoring genres overall. Strongest first.
 export function genresToCheck(theme, answers = [], max = KEYWORDS_TO_CHECK) {
   const weights = genreWeights(theme, answers);
+  // the mood question (Q4, double weight) leads: its main genre is checked first
+  const mood = answers.find((a) => (a?.weight || 1) > 1 && a?.genres?.length);
+  if (mood && max === 1) return [[mood.genres[0], weights.get(mood.genres[0]) || 1]];
   const picks = [];
   answers.filter((a) => a?.genres?.length).forEach((a) => {
     a.genres.slice(0, (a.weight || 1) > 1 ? 2 : 1).forEach((g) => !picks.includes(g) && picks.push(g));
@@ -221,7 +232,6 @@ export async function buildForestMix(token, theme, answers = []) {
 
   const artistFit = new Map(); // artist id → sum of matching genre weights
   const cache = store.get(CACHE_KEY, {}); // "artistId|genre" → { m: matched?, t: when checked }
-  const fresh = (e) => e && Date.now() - e.t < CACHE_DAYS * 864e5;
   let failedChecks = 0;
   let cachedChecks = 0;
   const checks = mainArtists.flatMap((artist) => keywords.map(([genre, w]) => ({ artist, genre, w })));
@@ -285,14 +295,31 @@ export async function buildForestMix(token, theme, answers = []) {
   const yearFilter = years.length >= 5 ? ` year:${pct(0.15) - 2}-${pct(0.9) + 1}` : "";
 
   const searched = [];
+  const songCache = store.get(SONG_CACHE_KEY, {}); // "genre|years|offset" → { items, t }
+  let cachedSearches = 0;
   for (const [genre] of keywords.slice(0, GENRE_SEARCHES)) {
     for (const offset of [0, SEARCH_LIMIT]) {
-      const q = encodeURIComponent(`genre:"${genre}"${yearFilter}`);
-      const res = await attempt(log, `search "${genre}"`, () =>
-        spotify(token, `/search?type=track&limit=${SEARCH_LIMIT}&offset=${offset}&q=${q}`));
-      res?.tracks.items.forEach((t) => !known.has(t.id) && !searched.some((x) => x.id === t.id) && searched.push(t));
+      const key = `${genre}|${yearFilter}|${offset}`;
+      let items = fresh(songCache[key]) ? songCache[key].items : null;
+      if (items) {
+        cachedSearches++;
+      } else {
+        const q = encodeURIComponent(`genre:"${genre}"${yearFilter}`);
+        const res = await attempt(log, `search "${genre}"`, () =>
+          spotify(token, `/search?type=track&limit=${SEARCH_LIMIT}&offset=${offset}&q=${q}`));
+        items = res?.tracks.items.map((t) => ({
+          id: t.id, uri: t.uri, name: t.name, artists: t.artists?.map((a) => ({ id: a.id, name: a.name })),
+          album: { name: t.album?.name, release_date: t.album?.release_date },
+        }));
+        if (items) songCache[key] = { items, t: Date.now() };
+      }
+      items?.forEach((t) => !known.has(t.id) && !searched.some((x) => x.id === t.id) && searched.push(t));
     }
   }
+  // drop expired entries so the cache doesn't grow
+  for (const k of Object.keys(songCache)) if (!fresh(songCache[k])) delete songCache[k];
+  store.set(SONG_CACHE_KEY, songCache);
+  if (cachedSearches) log.push(`new-song searches remembered: ${cachedSearches}`);
   log.push(`genre finds: ${searched.length}${yearFilter ? ` (${yearFilter.trim()})` : ""}`);
 
   // alternate deep cuts and search finds so neither dominates
