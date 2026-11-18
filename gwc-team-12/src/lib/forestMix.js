@@ -4,7 +4,9 @@
 // 1. THEIR SONGS  Recently played, top songs (4 weeks, 6 months) and recent Liked Songs,
 //                 most recent counting most.
 // 2. MATCH        Their 12 most-played recent artists are checked against the mood answer's
-//                 genres (MOOD_SEARCH_GENRES) with Spotify search ("is <artist> <genre>?"). Spotify hides
+//                 genre list (MOOD_SEARCH_GENRES), most typical genre first, moving to
+//                 broader genres only if too few fit, so it adapts to each listener. Uses
+//                 Spotify search ("is <artist> <genre>?"). Spotify hides
 //                 genres from new apps, but search still filters by them.
 // 3. PICK         Mostly their own recent songs by artists that fit. The "where do you go?"
 //                 answer adds a few deeper tracks by those same artists (up to 40%).
@@ -138,56 +140,68 @@ function shuffle(list) {
 // CHECK_CACHE_DAYS, so a repeat mix with the same mood needs none.
 const CHECK_CACHE_KEY = "forestGenreCache";
 const CHECK_CACHE_DAYS = 2;
-const ARTISTS_TO_CHECK = 12; // their most-played recent artists (12 × 2 genres = 24 searches)
-
-// Spotify genre names to check for each answer to the mood question (Q4), matching what
-// the team's hand-picked playlists sound like. Change these to retune the moods.
-export const MOOD_SEARCH_GENRES = {
-  acoustic: ["indie", "singer-songwriter"], // indie with acoustic vibes, not folk
-  beats: ["hip hop", "r&b"],
-  dreamy: ["r&b", "lo-fi"],
-};
 const fresh = (e) => !!e && Date.now() - e.t < CHECK_CACHE_DAYS * 864e5;
+const ARTISTS_TO_CHECK = 12;  // their most-played recent artists
+const ENOUGH_ARTISTS = 6;     // stop moving down the genre list once this many fit
+const MAX_SEARCHES = 48;      // per mix (12 artists × 4 genres at most); cached answers don't count
 
-// The genres to check: the mood question's answer (Q4); quiz skipped → the Dreamy genres.
+// For each answer to the mood question (Q4): Spotify genres from most typical to broader.
+// Every listener is checked against the first genre; only if too few of their artists fit
+// does it move down the list, so the mood adapts to each listener's own taste.
+export const MOOD_SEARCH_GENRES = {
+  acoustic: ["indie", "singer-songwriter", "folk", "pop"],
+  beats: ["hip hop", "r&b", "edm", "pop"],
+  dreamy: ["r&b", "lo-fi", "indie", "pop"],
+};
+
+// The genre list to use: the mood question's answer (Q4); quiz skipped → Dreamy.
 function moodGenres(theme, answers) {
   const sound = answers.find((a) => a?.sound)?.sound;
   return MOOD_SEARCH_GENRES[sound] || MOOD_SEARCH_GENRES.dreamy;
 }
 
+// artist id → fit (1 = matches the first genre, lower = a broader genre further down)
 async function artistsThatFit(token, artists, genres, log) {
   const cache = store.get(CHECK_CACHE_KEY, {}); // "artistId|genre" → { m: matched?, t: when }
-  const fit = new Map(); // artist id → how many of the mood's genres they match
+  const fit = new Map();
+  let searches = 0;
   let remembered = 0;
   let skipped = 0;
-  const checks = artists.flatMap((artist) => genres.map((genre) => ({ artist, genre })));
-  let next = 0;
-  await Promise.all(Array.from({ length: 3 }, async () => { // 3 at a time
-    while (next < checks.length) {
-      const { artist, genre } = checks[next++];
-      const key = `${artist.id}|${genre}`;
-      let matched;
-      if (fresh(cache[key])) {
-        matched = cache[key].m;
-        remembered++;
-      } else {
-        const q = encodeURIComponent(`artist:"${artist.name.replace(/"/g, "")}" genre:"${genre}"`);
-        try {
-          const res = await spotify(token, `/search?type=artist&limit=3&q=${q}`);
-          matched = res.artists.items.some((x) => x.id === artist.id);
-          cache[key] = { m: matched, t: Date.now() };
-        } catch {
-          skipped++;
-          continue;
+  const used = [];
+  for (const [tier, genre] of genres.entries()) {
+    if (fit.size >= ENOUGH_ARTISTS || searches >= MAX_SEARCHES) break;
+    used.push(genre);
+    const todo = artists.filter((a) => !fit.has(a.id));
+    let next = 0;
+    await Promise.all(Array.from({ length: 3 }, async () => { // 3 at a time
+      while (next < todo.length) {
+        const artist = todo[next++];
+        const key = `${artist.id}|${genre}`;
+        let matched;
+        if (fresh(cache[key])) {
+          matched = cache[key].m;
+          remembered++;
+        } else {
+          if (searches >= MAX_SEARCHES) return;
+          searches++;
+          const q = encodeURIComponent(`artist:"${artist.name.replace(/"/g, "")}" genre:"${genre}"`);
+          try {
+            const res = await spotify(token, `/search?type=artist&limit=3&q=${q}`);
+            matched = res.artists.items.some((x) => x.id === artist.id);
+            cache[key] = { m: matched, t: Date.now() };
+          } catch {
+            skipped++;
+            continue;
+          }
         }
+        if (matched && !fit.has(artist.id)) fit.set(artist.id, 1 - tier / genres.length);
       }
-      if (matched) fit.set(artist.id, (fit.get(artist.id) || 0) + 1);
-    }
-  }));
+    }));
+  }
   for (const k of Object.keys(cache)) if (!fresh(cache[k])) delete cache[k];
   store.set(CHECK_CACHE_KEY, cache);
-  log.push(`artists that fit ${genres.join(" / ")}: ${fit.size} of ${artists.length}` +
-    ` (${remembered} remembered` + (skipped ? `, ${skipped} skipped` : "") + ")");
+  log.push(`artists that fit (${used.join(" → ")}): ${fit.size} of ${artists.length}` +
+    ` (${searches} searches, ${remembered} remembered` + (skipped ? `, ${skipped} skipped` : "") + ")");
   return fit;
 }
 
@@ -244,11 +258,12 @@ export async function buildForestMix(token, theme, answers = []) {
   const fitOf = (t) => fit.get(t.artists?.[0]?.id) || 0;
   const theirs = [...known.values()]
     .filter(({ track }) => fitOf(track) > 0)
-    .sort((a, b) => b.recency * (1 + 0.3 * fitOf(b.track)) - a.recency * (1 + 0.3 * fitOf(a.track)))
+    .sort((a, b) => b.recency * (0.5 + fitOf(b.track)) - a.recency * (0.5 + fitOf(a.track)))
     .map((e) => e.track);
 
   // ---------- 4. new songs: deeper tracks by the artists that fit best (no search) ----------
-  const digInto = mainArtists.filter((a) => fit.has(a.id)).slice(0, DEEP_CUT_ARTISTS);
+  const digInto = mainArtists.filter((a) => fit.has(a.id))
+    .sort((a, b) => fit.get(b.id) - fit.get(a.id)).slice(0, DEEP_CUT_ARTISTS);
   const deepCuts = [];
   for (const artist of digInto) {
     const albums = await attempt(log, "artist albums", () =>
