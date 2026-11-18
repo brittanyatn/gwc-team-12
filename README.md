@@ -38,6 +38,8 @@ Copy the example file and paste your keys in (no quotes, no spaces):
     npm run server     # terminal 1: Spotify login, http://127.0.0.1:3000
     npm run dev        # terminal 2: the app
 
+Or start both in one terminal with `npm start` (Ctrl + C stops both).
+
 Open **http://127.0.0.1:1420/** (use `127.0.0.1`, not `localhost`, or Spotify login won't return to the app). Click **Connect to Spotify**, take the quiz, and press play.
 
 ### Troubleshooting
