@@ -1,7 +1,7 @@
 // Sound effects for "DJ spin that shit" and the wait before the first song.
 //
 // The files live in public/sounds/. Each click on "DJ spin that shit" plays ONE of the
-// DJ_SOUNDS at random (never the same one twice in a row), then the ambient loop
+// DJ_SOUNDS at random (a fresh pick every time), then the ambient loop
 // plays until the music starts. To add a sound: put the file in public/sounds/ and
 // add its name to DJ_SOUNDS. A file that's missing is skipped.
 const DJ_SOUNDS = [
@@ -50,12 +50,9 @@ export function stopAmbient(ms = 1200) {
   fade(a, 0, ms, () => a.pause());
 }
 
-let lastDj = null;
-
 // Play a random DJ sound; if that file is missing, try the others.
 function playRandomDj(onDone) {
-  const order = DJ_SOUNDS.filter((f) => f !== lastDj).sort(() => Math.random() - 0.5);
-  if (lastDj && DJ_SOUNDS.includes(lastDj)) order.push(lastDj); // repeat only as a last resort
+  const order = [...DJ_SOUNDS].sort(() => Math.random() - 0.5); // random order; first that plays wins
   const tryNext = () => {
     const file = order.shift();
     if (!file) return onDone();
@@ -63,7 +60,6 @@ function playRandomDj(onDone) {
     audio.volume = VOLUME.dj;
     audio.addEventListener("ended", onDone, { once: true });
     audio.play()
-      .then(() => { lastDj = file; })
       .catch(() => { console.info(`[sfx] couldn't play ${url(file)} (missing file?)`); tryNext(); });
   };
   tryNext();
