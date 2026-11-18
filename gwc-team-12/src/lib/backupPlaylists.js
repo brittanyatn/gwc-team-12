@@ -15,7 +15,7 @@
 // so play resumes the listener's last Spotify music instead.
 export const BACKUP_PLAYLISTS = {
   acoustic: { label: "Acoustic", link: "https://open.spotify.com/playlist/0fUW5AgXgrtNEceVatfDdM" }, // Q4 "Warm acoustic & breezy strings"
-  beats:    { label: "Beats",    link: "" }, // Q4 "Deep bass & driving beats"
+  beats:    { label: "Beats",    link: "https://open.spotify.com/playlist/17O5VdTS0MI5O56DPbkT1X" }, // Q4 "Deep bass & driving beats"
   dreamy:   { label: "Dreamy",   link: "" }, // Q4 "Dreamy lo-fi & ambient pads"
   // Optional 4th: for anyone who skips the quiz. Leave empty to use the Dreamy one.
   skipped:  { label: "Forest",   link: "" },
