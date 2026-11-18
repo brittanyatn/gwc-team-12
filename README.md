@@ -8,6 +8,7 @@ Sign in with Spotify, take the forest quiz, then hit "DJ spin that shit". The qu
 
 - **Demo mode on** (the switch on the welcome screen, on by default): plays the team's playlist for that mood
 - **Demo mode off**: makes a 30 song forest mix from what you've been listening to lately, only from your artists that fit the mood
+- note: Spotify doesn't tell apps an artist's genre, so the mix checks your artists with Spotify search, most typical genre for the mood first (like indie for acoustic). If not enough of your artists fit, it moves to broader genres (ending with pop), so some picks won't match the mood exactly
 - if the mix doesn't work out (or Spotify says too many requests), the mood playlist plays instead
 - **+ Save mix** saves it to your Spotify
 

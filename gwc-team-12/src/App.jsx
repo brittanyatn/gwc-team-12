@@ -16,6 +16,12 @@ function App() {
 
     useEffect(() => {
 
+    // Preview mode for working on the UI: http://127.0.0.1:1420/?preview skips the Spotify login (only in npm run dev)
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('preview')) {
+      setToken('preview-token');
+      return;
+    }
+
     async function getToken() {
       const response = await fetch('/auth/token');
       const json = await response.json();
