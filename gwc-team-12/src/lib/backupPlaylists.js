@@ -14,7 +14,7 @@
 // (Spotify blocks new apps from those). An empty link = no backup for that answer,
 // so play resumes the listener's last Spotify music instead.
 export const BACKUP_PLAYLISTS = {
-  acoustic: { label: "Acoustic", link: "" }, // Q4 "Warm acoustic & breezy strings"
+  acoustic: { label: "Acoustic", link: "https://open.spotify.com/playlist/0fUW5AgXgrtNEceVatfDdM" }, // Q4 "Warm acoustic & breezy strings"
   beats:    { label: "Beats",    link: "" }, // Q4 "Deep bass & driving beats"
   dreamy:   { label: "Dreamy",   link: "" }, // Q4 "Dreamy lo-fi & ambient pads"
   // Optional 4th: for anyone who skips the quiz. Leave empty to use the Dreamy one.
