@@ -87,6 +87,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
   const [started, setStarted] = useState(false);
   const [position, setPosition] = useState(0); // ms, for the progress bar
   const [duration, setDuration] = useState(0);
+  const [scrub, setScrub] = useState(null); // 0..1 while dragging along the progress bar
 
   // Forest mix: the listener's top songs filtered by their quiz answers
   const [mix, setMix] = useState(null);
@@ -348,7 +349,38 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
 
   const art = ART[theme] || ART.lightForest;
   const cover = (started && track?.album?.images?.[0]?.url) || albumPlaceholder;
-  const progress = duration ? Math.min(position / duration, 1) : 0;
+  const progress = scrub ?? (duration ? Math.min(position / duration, 1) : 0);
+
+  // Scrubbing: click or drag along the progress bar to jump to that point in the song
+  const canScrub = started && duration > 0;
+  const ratioAt = (e) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    return Math.min(1, Math.max(0, (e.clientX - box.left) / box.width));
+  };
+  const seekTo = (ratio) => {
+    const ms = Math.round(ratio * duration);
+    playerRef.current?.seek(ms);
+    setPosition(ms);
+  };
+  const scrubStart = (e) => {
+    if (!canScrub) return;
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setScrub(ratioAt(e));
+  };
+  const scrubMove = (e) => { if (scrub !== null) setScrub(ratioAt(e)); };
+  const scrubEnd = () => {
+    if (scrub === null) return;
+    seekTo(scrub);
+    setScrub(null);
+  };
+  const scrubKey = (e) => {
+    if (!canScrub) return;
+    const step = { ArrowLeft: -5000, ArrowRight: 5000, Home: -Infinity, End: Infinity }[e.key];
+    if (step === undefined) return;
+    e.preventDefault();
+    seekTo(Math.min(1, Math.max(0, (position + step) / duration)));
+  };
+  const fmt = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
 
   return (
     <main className={`player-card ${theme}`}>
@@ -418,12 +450,26 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
         )}
       </div>
 
-      <div className="player-progress-wrap">
-        <div className="player-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+      <div
+        className={`player-progress-wrap ${canScrub ? "can-scrub" : ""} ${scrub !== null ? "is-scrubbing" : ""}`}
+        role="slider"
+        tabIndex={canScrub ? 0 : -1}
+        aria-label="Song position"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration / 1000)}
+        aria-valuenow={Math.round((progress * duration) / 1000)}
+        aria-valuetext={`${fmt(progress * duration)} of ${fmt(duration)}`}
+        onPointerDown={scrubStart}
+        onPointerMove={scrubMove}
+        onPointerUp={scrubEnd}
+        onPointerCancel={() => setScrub(null)}
+        onKeyDown={scrubKey}
+      >
+        <div className="player-progress">
           <div className="player-played" style={{ width: `${progress * 100}%` }} />
         </div>
         {/* firefly tracker + glitter trail */}
-        <ProgressFirefly progress={progress} playing={isPlaying} theme={theme} />
+        <ProgressFirefly progress={progress} playing={isPlaying} theme={theme} scrubbing={scrub !== null} />
       </div>
 
       <div className="player-controls">

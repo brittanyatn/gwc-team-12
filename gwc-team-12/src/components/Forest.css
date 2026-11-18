@@ -922,3 +922,28 @@
 @media (prefers-reduced-motion: reduce) {
   .demo-toggle-track, .demo-toggle-knob { transition: none; }
 }
+
+/* ---------- Scrubbing: click or drag along the progress bar (SpotifyPlayer.jsx) ---------- */
+.player-progress-wrap.can-scrub {
+  cursor: pointer;
+  touch-action: none;
+}
+/* a taller invisible strip so the thin bar is easy to grab */
+.player-progress-wrap.can-scrub::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  right: -6px;
+  top: -10px;
+  bottom: -10px;
+}
+.player-progress-wrap .player-progress { transition: transform 0.15s; }
+.player-progress-wrap.can-scrub:hover .player-progress,
+.player-progress-wrap.is-scrubbing .player-progress { transform: scaleY(1.6); }
+.player-progress-wrap.is-scrubbing .player-played { transition: none; }
+.player-progress-wrap.is-scrubbing { cursor: grabbing; }
+.player-progress-wrap:focus-visible {
+  outline: 2px solid var(--player-played);
+  outline-offset: 6px;
+  border-radius: 4px;
+}

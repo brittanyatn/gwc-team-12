@@ -13,7 +13,7 @@ const TAIL_OFFSET = 11; // px behind the firefly's body where the glitter starts
 const reducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-export default function ProgressFirefly({ progress, playing, theme }) {
+export default function ProgressFirefly({ progress, playing, theme, scrubbing = false }) {
   const wrap = useRef(null);
   const bug = useRef(null);
   const last = useRef(progress);
@@ -67,7 +67,7 @@ export default function ProgressFirefly({ progress, playing, theme }) {
       ))}
       <img
         ref={bug}
-        className={`firefly ${jump ? "no-slide" : ""}`}
+        className={`firefly ${jump || scrubbing ? "no-slide" : ""}`}
         src={ART[theme] || fireflyLight}
         style={{ left: `${progress * 100}%` }}
         width="30"
