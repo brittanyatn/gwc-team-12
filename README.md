@@ -61,7 +61,7 @@ All paths are inside the nested `gwc-team-12/gwc-team-12` folder.
 | Backup playlists | `src/lib/backupPlaylists.js` | One public playlist link per mood answer (Acoustic, Beats, Dreamy) and an optional one for skipping the quiz. Used when the mix fails, when fewer than `MIN_THEMED_SONGS` (15) songs fit the answers, or when Spotify refuses the mix. |
 | Sound effects | `src/lib/sfx.js`, `public/sounds/` | `DJ_SOUNDS` lists the clips picked at random for "DJ spin that shit". `ambient-forest.mp3` loops on the player page until the music starts. |
 | Player screen | `src/components/SpotifyPlayer.jsx` | Spotify Web Playback SDK player, play/skip controls, Save mix button, swirling portal (`PortalVortex.jsx`) and scrolling text for long titles (`Marquee.jsx`). |
-| Look and colours | `src/components/Forest.css`, `src/assets/forest/` | Light/dark theme colours are CSS variables. Button and progress-bar art are placeholders. |
+| Look and colours | `src/components/Forest.css`, `src/assets/forest/` | Light/dark theme colours are CSS variables. The rock frame (`portal-frame-*.png`), pebble buttons (`prev/play/pause/next-*.svg`) and firefly tracker (`firefly-*.png`) come in light and dark versions. |
 | Spotify login | `server/index.cjs` | Express server on port 3000: sign-in, callback and automatic login renewal. It holds one login at a time, so it's meant to run on each person's own laptop. |
 
 ### Testing shortcuts
@@ -70,6 +70,7 @@ Add these to the page address:
 
 - `?backup` always uses the backup playlists and makes no Spotify searches, e.g. `http://127.0.0.1:1420/?backup`.
 - `?track=<Spotify song link>` plays that song on the first press of play.
+- `?nobackup` turns the backup playlists off, so you only get the real forest mix.
 
 ## Spotify limits
 

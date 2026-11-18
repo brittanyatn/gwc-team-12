@@ -24,9 +24,7 @@ import portalDark from "../assets/forest/portal-frame-dark.png";
 import portalMask from "../assets/forest/portal-mask.svg";
 import albumPlaceholder from "../assets/forest/album-placeholder.jpg";
 import spotifyWhite from "../assets/forest/spotify-white.svg";
-// PLACEHOLDER button art (Figma "Control Button" ovals, 73 × 37).
-// To swap in final art: replace these files, or point the imports at the new files.
-// Progress bar colors are placeholders too: --player-track / --player-played in Forest.css.
+// Pebble buttons (73 × 37) in the rock frame's colours. To change one, replace its SVG.
 import prevLight from "../assets/forest/prev-light.svg";
 import prevDark from "../assets/forest/prev-dark.svg";
 import playLight from "../assets/forest/play-light.svg";

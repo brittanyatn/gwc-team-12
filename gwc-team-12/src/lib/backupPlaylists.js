@@ -30,7 +30,18 @@ export const ALWAYS_USE_BACKUP = false;
 // answers. Below that it's mostly unrelated favourites, so the backup plays instead.
 export const MIN_THEMED_SONGS = 15;
 
+// TEST SWITCH: add ?nobackup to the page address to turn the backup playlists off,
+// so you only ever get the real forest mix (or your last Spotify music if it fails).
+export function backupDisabled() {
+  try {
+    return new URLSearchParams(globalThis.location?.search || "").has("nobackup");
+  } catch {
+    return false;
+  }
+}
+
 export function backupForced() {
+  if (backupDisabled()) return false;
   if (ALWAYS_USE_BACKUP) return true;
   try {
     return new URLSearchParams(globalThis.location?.search || "").has("backup");
@@ -53,6 +64,10 @@ const THEME_NAMES = { lightForest: "Sunlit Canopy", darkForest: "Moonlit Glade" 
 
 // → { name, uri, url, theme, sound } or null if that playlist has no link yet
 export function pickBackupPlaylist(theme, answers) {
+  if (backupDisabled()) {
+    console.info("[backup playlist] turned off by ?nobackup");
+    return null;
+  }
   let sound = soundFromAnswers(answers);
   if (sound === "skipped" && !playlistId(BACKUP_PLAYLISTS.skipped?.link)) sound = "dreamy";
   const entry = BACKUP_PLAYLISTS[sound];
