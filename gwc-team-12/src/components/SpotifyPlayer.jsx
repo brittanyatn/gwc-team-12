@@ -3,6 +3,7 @@ import "./Forest.css";
 import { buildForestMix, saveBackupAsPlaylist, saveMixAsPlaylist } from "../lib/forestMix";
 import { backupForced, mixTooWeak, pickBackupPlaylist } from "../lib/backupPlaylists";
 import PortalVortex from "./PortalVortex";
+import { stopAmbient } from "../lib/sfx";
 
 // Player art from the Figma midfi "Player · iPhone Large" frames
 import bgLight from "../assets/forest/bg-light.png";
@@ -161,6 +162,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       player.activateElement();
 
       if (!startedRef.current) {
+        stopAmbient(); // fade the waiting music out as the real music starts
         // the player registers with Spotify a moment after it's created;
         // if it never does (failed start / went offline), reconnect once and wait again
         const waitForDevice = async (ms) => {
@@ -326,6 +328,9 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
     };
   }, [token]);
 
+  // The ambient waiting loop stops once music plays, or when leaving the player
+  useEffect(() => { if (started) stopAmbient(); }, [started]);
+
   // Move the progress bar forward while a song is playing
   const isPlaying = started && paused;
   useEffect(() => {
@@ -351,7 +356,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
       {/* Back to the quiz — top-left corner of the widget */}
       {onBack && (
         <div className="back-pill">
-          <button type="button" onClick={() => { playerRef.current?.pause(); onBack(); }}>
+          <button type="button" onClick={() => { stopAmbient(400); playerRef.current?.pause(); onBack(); }}>
             ‹ Quiz
           </button>
         </div>

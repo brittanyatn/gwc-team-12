@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import QuizQuestion from './QuizQuestion';
 import ForestCard, { useSystemForestTheme } from './ForestCard';
+import { playDjSpin } from '../lib/sfx';
 
 // `genres` = Spotify genre names each answer adds to the forest mix (see src/lib/forestMix.js).
 // Each option's genres echo its own imagery; overlap between questions is kept low so
@@ -152,7 +153,7 @@ export default function OnboardingQuiz({ onComplete }) {
         </p>
         <p className="forest-kicker">Theme assigned: {selectedTheme}</p>
         <div className="forest-spacer" style={{ height: 18 }} />
-        <button type="button" className="btn-forest" onClick={() => onComplete(selectedTheme, answers)}>
+        <button type="button" className="btn-forest" onClick={() => { playDjSpin(); onComplete(selectedTheme, answers); }}>
           DJ spin that shit
         </button>
       </ForestCard>
