@@ -5,7 +5,6 @@
 // plays until the music starts. To add a sound: put the file in public/sounds/ and
 // add its name to DJ_SOUNDS. A file that's missing is skipped.
 const DJ_SOUNDS = [
-  "dj-scratch.mp3", // record scratch (made for this app)
   "fah.mp3",        // the "FAHHH" meme sound
   "vine-boom.mp3",  // the Vine boom
 ];
