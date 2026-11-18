@@ -1,4 +1,5 @@
-// Backup playlists: hand-picked Spotify playlists, one per theme × sound answer.
+// Backup playlists: hand-picked Spotify playlists, one per answer to the sound question (Q4).
+// The light/dark theme only changes the look, not which playlist plays.
 //
 // The forest mix needs ~70 Spotify requests, and Spotify's search limit can block it.
 // Playing one of these takes a single request, so it works even when search is blocked.
@@ -10,19 +11,14 @@
 // TO ADD A PLAYLIST: in Spotify, ⋯ on the playlist → Share → Copy link to playlist,
 // and paste the whole link between the quotes. Make the playlist Public so every
 // account can play it. Use playlists a person made, not Spotify's own playlists
-// (Spotify blocks new apps from those). An empty link = no backup for that combo,
+// (Spotify blocks new apps from those). An empty link = no backup for that answer,
 // so play resumes the listener's last Spotify music instead.
 export const BACKUP_PLAYLISTS = {
-  lightForest: {
-    acoustic: { name: "Sunlit Canopy · Acoustic", link: "" },
-    beats:    { name: "Sunlit Canopy · Beats",    link: "" },
-    dreamy:   { name: "Sunlit Canopy · Dreamy",   link: "" }, // also used for "Skip to Light Forest"
-  },
-  darkForest: {
-    acoustic: { name: "Moonlit Glade · Acoustic", link: "" },
-    beats:    { name: "Moonlit Glade · Beats",    link: "" },
-    dreamy:   { name: "Moonlit Glade · Dreamy",   link: "" }, // also used for "Skip to Dark Forest"
-  },
+  acoustic: { label: "Acoustic", link: "" }, // Q4 "Warm acoustic & breezy strings"
+  beats:    { label: "Beats",    link: "" }, // Q4 "Deep bass & driving beats"
+  dreamy:   { label: "Dreamy",   link: "" }, // Q4 "Dreamy lo-fi & ambient pads"
+  // Optional 4th: for anyone who skips the quiz. Leave empty to use the Dreamy one.
+  skipped:  { label: "Forest",   link: "" },
 };
 
 // DEMO SWITCH: true = always play the backup playlists and don't build a mix at all
@@ -48,22 +44,25 @@ export function playlistId(link) {
   return String(link || "").match(/playlist[/:]([A-Za-z0-9]{22})/)?.[1] || null;
 }
 
-// The sound question (Q4) picks the playlist; skipped → the theme's dreamy one.
+// The sound question (Q4) picks the playlist; no Q4 answer (quiz skipped) → "skipped".
 export function soundFromAnswers(answers = []) {
-  return answers.find((a) => a?.sound)?.sound || "dreamy";
+  return answers.find((a) => a?.sound)?.sound || "skipped";
 }
+
+const THEME_NAMES = { lightForest: "Sunlit Canopy", darkForest: "Moonlit Glade" };
 
 // → { name, uri, url, theme, sound } or null if that playlist has no link yet
 export function pickBackupPlaylist(theme, answers) {
-  const sound = soundFromAnswers(answers);
-  const entry = (BACKUP_PLAYLISTS[theme] || BACKUP_PLAYLISTS.lightForest)[sound];
+  let sound = soundFromAnswers(answers);
+  if (sound === "skipped" && !playlistId(BACKUP_PLAYLISTS.skipped?.link)) sound = "dreamy";
+  const entry = BACKUP_PLAYLISTS[sound];
   const id = playlistId(entry?.link);
   if (!id) {
-    console.warn(`[backup playlist] no link set for ${theme} · ${sound} (src/lib/backupPlaylists.js)`);
+    console.warn(`[backup playlist] no link set for "${sound}" (src/lib/backupPlaylists.js)`);
     return null;
   }
   return {
-    name: entry.name,
+    name: `${THEME_NAMES[theme] || "Forest"} · ${entry.label}`,
     uri: `spotify:playlist:${id}`,
     url: `https://open.spotify.com/playlist/${id}`,
     theme,
