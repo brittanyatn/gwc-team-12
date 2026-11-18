@@ -16,7 +16,7 @@
 export const BACKUP_PLAYLISTS = {
   acoustic: { label: "Acoustic", link: "https://open.spotify.com/playlist/0fUW5AgXgrtNEceVatfDdM" }, // Q4 "Warm acoustic & breezy strings"
   beats:    { label: "Beats",    link: "https://open.spotify.com/playlist/17O5VdTS0MI5O56DPbkT1X" }, // Q4 "Deep bass & driving beats"
-  dreamy:   { label: "Dreamy",   link: "" }, // Q4 "Dreamy lo-fi & ambient pads"
+  dreamy:   { label: "Dreamy",   link: "https://open.spotify.com/playlist/2NMlLpKdYh5brw8o2VKjf8" }, // Q4 "Dreamy lo-fi & ambient pads"
   // Optional 4th: for anyone who skips the quiz. Leave empty to use the Dreamy one.
   skipped:  { label: "Forest",   link: "" },
 };
