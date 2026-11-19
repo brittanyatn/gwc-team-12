@@ -177,7 +177,7 @@ export default function OnboardingQuiz({ onComplete }) {
         <p className="forest-kicker">Theme assigned: {selectedTheme}</p>
         <div className="forest-spacer" style={{ height: 18 }} />
         <button type="button" className="btn-forest" onClick={() => { playDjSpin(); onComplete(selectedTheme, answers); }}>
-          DJ spin that shit
+          DJ spin that
         </button>
       </ForestCard>
     );
