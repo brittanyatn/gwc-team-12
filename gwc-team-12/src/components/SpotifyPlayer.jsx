@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import "./Forest.css";
 import { buildForestMix, saveBackupAsPlaylist, saveMixAsPlaylist } from "../lib/forestMix";
 import { backupForced, mixTooWeak, pickBackupPlaylist } from "../lib/backupPlaylists";
@@ -97,6 +97,27 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | saving | saved | error
   const [savedUrl, setSavedUrl] = useState(null);
   const [playerProblem, setPlayerProblem] = useState(null); // shown under the song info
+
+  const cardRef = useRef(null);
+  useLayoutEffect(() => {
+    function fitPlayer() {
+      const card = cardRef.current;
+      if (!card) return;
+
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const scale = Math.min(width / 349, height / 371);
+      if (scale <= 0) return;
+
+      card.style.setProperty("--player-scale", String(scale));
+      card.style.setProperty("--player-width", `${width / scale}px`);
+      card.style.setProperty("--player-height", `${height / scale}px`);
+    }
+
+    fitPlayer();
+    window.addEventListener("resize", fitPlayer);
+    return () => window.removeEventListener("resize", fitPlayer);
+  }, []);
 
   useEffect(() => {
     if (!token || token === "preview-token") return;
@@ -383,7 +404,7 @@ function SpotifyPlayer({ token, theme = "lightForest", answers = [], onBack }) {
   const fmt = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`;
 
   return (
-    <main className={`player-card ${theme}`}>
+    <main ref={cardRef} className={`player-card ${theme}`}>
       {/* scenery */}
       <img className="player-layer player-bg" src={art.bg} alt="" />
       <div className="player-layer player-bushes" style={{ "--bush-mask": `url("${bushMask}")` }}>

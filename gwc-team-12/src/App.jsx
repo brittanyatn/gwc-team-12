@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 import reactLogo from "./assets/react.svg";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
@@ -30,6 +30,29 @@ function App() {
 
     getToken();
 
+  }, []);
+
+  
+  useLayoutEffect(() => {
+  const root = document.documentElement;
+
+  function fitForestCard() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    const scale = Math.min(width / 349, height / 371);
+    if (scale <= 0) return;
+
+    // Scale the quiz uniformly so its text and buttons keep their proportions.
+    root.style.setProperty("--forest-scale", String(scale));
+
+    // Give the card enough space to fill the window after scaling.
+    root.style.setProperty("--forest-width", `${width / scale}px`);
+    root.style.setProperty("--forest-height", `${height / scale}px`);
+  }
+
+  fitForestCard();
+  window.addEventListener("resize", fitForestCard);
+  return () => window.removeEventListener("resize", fitForestCard);
   }, []);
 
   

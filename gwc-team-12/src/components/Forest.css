@@ -947,3 +947,48 @@
   outline-offset: 6px;
   border-radius: 4px;
 }
+
+/* Resize the whole player together so the album art, frame, and buttons stay aligned. */
+.player-card {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  width: var(--player-width, 349px);
+  height: var(--player-height, 371px);
+  transform: scale(var(--player-scale, 1));
+  transform-origin: top left;
+}
+
+/* Make each scenery layer fill the resized card. */
+.player-layer {
+  width: 100%;
+  height: 100%;
+}
+
+/* Scale the opening, quiz, and results cards from the original Figma size. */
+.forest-card {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  width: var(--forest-width, 349px);
+  height: var(--forest-height, 371px);
+  transform: scale(var(--forest-scale, 1));
+  transform-origin: top left;
+}
+
+/* Keep the forest floor centered and anchored to the bottom on taller windows. */
+.forest-floor {
+  top: auto;
+  bottom: -89px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Keep both ends of the quiz header 24px from the card edges. */
+.forest-card > .quiz-header-forest {
+  left: 24px;
+  right: 24px;
+  width: auto;
+}
